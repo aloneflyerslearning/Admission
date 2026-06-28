@@ -18,6 +18,9 @@
             --card-bg: #ffffff;
             --text-main: #2d3748;
             --border-color: #e2e8f0;
+            --green: #28a745;
+            --red: #e53e3e;
+            --purple: #553c9a;
         }
         
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -75,6 +78,35 @@
             border-bottom: 2px solid var(--gold);
             padding-bottom: 6px;
             display: inline-block;
+        }
+
+        /* Database Summary Strip */
+        .stats-strip {
+            background: linear-gradient(135deg, var(--navy), #002244);
+            color: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .stat-val {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: var(--gold);
+        }
+        .stat-lbl {
+            font-size: 0.75rem;
+            opacity: 0.85;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
         }
 
         /* Form Inputs Optimized for Touch */
@@ -202,18 +234,89 @@
         .student-card-sub { font-size: 0.8rem; color: #718096; margin-top: 2px; }
         .student-card-actions {
             display: flex;
+            flex-wrap: wrap;
             gap: 6px;
             border-top: 1px solid #f7fafc;
             padding-top: 10px;
         }
         .student-card-actions button {
-            flex: 1;
+            flex: 1 1 45%;
             height: 36px;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
         }
         .btn-card-print { background: var(--navy); }
         .btn-card-edit { background: #dd6b20; }
         .btn-card-del { background: #e53e3e; }
+        .btn-card-remind { background: #553c9a; }
+        .btn-card-collect { background: var(--green); }
+        .btn-card-tc { background: #805ad5; }
+        .btn-card-leave { background: #4a5568; }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-top: 4px;
+            margin-right: 4px;
+        }
+        .status-paid { background: #c6f6d5; color: #22543d; }
+        .status-unpaid { background: #fed7d7; color: #742a2a; }
+        .status-overdue { background: #feebc8; color: #744210; }
+        .status-tc { background: #e2e8f0; color: #4a5568; }
+
+        /* Modal Popup Styles */
+        .app-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+        .app-modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .modal-header {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--navy);
+            margin-bottom: 12px;
+            border-bottom: 2px solid var(--gold);
+            padding-bottom: 4px;
+        }
+        .modal-close-btn {
+            position: absolute;
+            top: 16px; right: 16px;
+            background: transparent;
+            border: none;
+            color: #718096;
+            font-size: 1.2rem;
+            cursor: pointer;
+            height: auto; width: auto; padding: 0;
+        }
+
+        /* Remind Option grid */
+        .remind-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn-whatsapp { background: #25D366; color: white; }
+        .btn-sms { background: #0078d4; color: white; }
 
         /* Overlay Layout */
         #print-overlay {
@@ -321,6 +424,67 @@
         <button class="overlay-close" onclick="closeOverlay()">Close</button>
     </div>
 
+    <!-- REMINDER MODAL -->
+    <div id="reminderModal" class="app-modal">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeModal('reminderModal')">×</button>
+            <div class="modal-header">Fee Dues Reminder</div>
+            <p id="reminderPreviewText" style="font-size:0.85rem; background:#f7fafc; padding:10px; border-radius:6px; line-height:1.4; border:1px solid #e2e8f0;"></p>
+            <div class="remind-grid">
+                <button class="btn-whatsapp" id="whatsappSendBtn">💬 WhatsApp</button>
+                <button class="btn-sms" id="smsSendBtn">✉️ SMS App</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- COLLECT FEE MODAL -->
+    <div id="feeModal" class="app-modal">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeModal('feeModal')">×</button>
+            <div class="modal-header">Collect Pending Fees</div>
+            <div class="form-group">
+                <label>Total Fee Amount (Net)</label>
+                <input type="text" id="collectNetDisplay" readonly>
+            </div>
+            <div class="form-group">
+                <label>Amount to Pay (₹)</label>
+                <input type="number" id="collectPaidAmount" placeholder="Enter amount collected" required>
+            </div>
+            <button class="btn-reg" style="background:var(--green);" onclick="submitCollectFee()">💵 Collect & Generate Bill</button>
+        </div>
+    </div>
+
+    <!-- BILL / RECEIPT MODAL -->
+    <div id="billModal" class="app-modal">
+        <div class="modal-content" style="max-width: 440px;">
+            <button class="modal-close-btn" onclick="closeModal('billModal')">×</button>
+            <div class="modal-header">Fee Receipt Generated</div>
+            <div id="canvas-bill-container" style="text-align: center; margin-bottom: 12px; overflow: auto; max-height: 300px; border: 1px solid #cbd5e0;">
+                <!-- HD Canvas scaled via style to fit neatly -->
+                <canvas id="receiptCanvas" width="1000" height="1280" style="width:100%; max-width:350px; display:block; margin:0 auto;"></canvas>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <button class="btn-reg" style="background:#4a5568;" onclick="downloadBillAsPhoto()">📥 Download Photo</button>
+                <button class="btn-reg" style="background:var(--navy);" onclick="printReceiptFromCanvas()">🖨️ Print Receipt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRANSFER CERTIFICATE (T.C.) MODAL -->
+    <div id="tcModal" class="app-modal">
+        <div class="modal-content" style="max-width: 440px;">
+            <button class="modal-close-btn" onclick="closeModal('tcModal')">×</button>
+            <div class="modal-header">Transfer Certificate (T.C.)</div>
+            <div id="canvas-tc-container" style="text-align: center; margin-bottom: 12px; overflow: auto; max-height: 300px; border: 1px solid #cbd5e0;">
+                <canvas id="tcCanvas" width="1000" height="1300" style="width:100%; max-width:350px; display:block; margin:0 auto;"></canvas>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <button class="btn-reg" style="background:#4a5568;" onclick="downloadTCAsPhoto()">📥 Download Photo</button>
+                <button class="btn-reg" style="background:var(--navy);" onclick="printTCFromCanvas()">🖨️ Print T.C.</button>
+            </div>
+        </div>
+    </div>
+
     <!-- App Header -->
     <div class="app-bar">
         <h1>Alone Flyer's Learning</h1>
@@ -425,6 +589,22 @@
 
         <!-- ================= TAB 2: DATABASE ================= -->
         <div id="view-database" class="tab-view">
+            <!-- STATISTICS SUMMARY CARD -->
+            <div class="stats-strip">
+                <div class="stat-item">
+                    <div class="stat-val" id="statActiveCount">0</div>
+                    <div class="stat-lbl">Active Students</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val" id="statTCCount">0</div>
+                    <div class="stat-lbl">Leaved (T.C.)</div>
+                </div>
+                <div class="stat-item" style="grid-column: span 2; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 4px;">
+                    <div class="stat-val" id="statTotalCollected" style="color: #48bb78; font-size: 1.6rem;">₹ 0</div>
+                    <div class="stat-lbl">Total Fees Collected</div>
+                </div>
+            </div>
+
             <div class="list-section">
                 <div class="section-title">Registered Database</div>
                 <div id="studentCardsContainer">
@@ -499,6 +679,7 @@
         let currentPhotoBase64 = "";
         let videoStream = null;
         let baseFee = 0;
+        let activeFeeStudentIndex = null;
         const ADMIN_PASS = "AFL";
 
         // TAB NAVIGATION LOGIC
@@ -637,6 +818,27 @@
             document.getElementById('regNoInput').value = "AFL100" + (db.length + 1);
         }
 
+        // Helper to check if 30 days have completed since registration or last payment date
+        function isMonthCompleted(s) {
+            let referenceDateStr = s.admDate; // Fallback
+            if (s.feeStatus === "paid" && s.datePaid) {
+                const parts = s.datePaid.split('-');
+                if (parts.length === 3) {
+                    referenceDateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+            if (!referenceDateStr) return false;
+            
+            const refDate = new Date(referenceDateStr);
+            // Current date context is June 28, 2026
+            const currentDate = new Date("2026-06-28");
+            
+            const timeDiff = Math.abs(currentDate - refDate);
+            const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+            
+            return daysDiff >= 30;
+        }
+
         // 4. DATABASE & REGISTRATION
         function registerStudent() {
             const name = document.getElementById('sName').value;
@@ -667,7 +869,11 @@
                 discount: document.getElementById('discountInput').value,
                 fee: document.getElementById('feeDisplay').value,
                 subjects: document.getElementById('subjects').value,
-                photo: currentPhotoBase64
+                photo: currentPhotoBase64,
+                feeStatus: "unpaid", // default status
+                datePaid: "",
+                amountPaid: "0",
+                status: "active" // default status
             };
 
             try {
@@ -730,20 +936,105 @@
             switchTab('view-database', document.querySelectorAll('.nav-item')[1]);
         }
 
+        // Toggle student active vs leaved status
+        function toggleStudentStatus(i) {
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            let s = db[i];
+            
+            if (!s.status) s.status = "active";
+            
+            if (s.status === "active") {
+                if (confirm("Are you sure you want to mark this student as LEAVED and issue their Transfer Certificate (T.C.)?")) {
+                    s.status = "leaved";
+                    db[i] = s;
+                    localStorage.setItem('db_safe', JSON.stringify(db));
+                    alert("Student status set to Leaved.");
+                    loadStudents();
+                    generateTCCanvas(s);
+                }
+            } else {
+                if (confirm("Re-activate this student's enrollment record?")) {
+                    s.status = "active";
+                    db[i] = s;
+                    localStorage.setItem('db_safe', JSON.stringify(db));
+                    alert("Student record reactivated.");
+                    loadStudents();
+                }
+            }
+        }
+
         // Renders student database as highly polished mobile cards
         function loadStudents() {
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             let cardContainer = document.getElementById('studentCardsContainer');
             let h = "";
             
+            let activeCount = 0;
+            let tcCount = 0;
+            let totalCollected = 0;
+
             if (db.length === 0) {
                 cardContainer.innerHTML = `<div style="text-align:center; padding: 40px 10px; color:#718096; font-size:0.9rem;">No students registered.</div>`;
                 updateBulkPrintSelects();
+                updateStats(0, 0, 0);
                 return;
             }
 
             db.forEach((s, i) => {
                 let imgHTML = s.photo ? `<img src="${s.photo}" class="student-card-img">` : `<div class="student-card-img" style="display:flex; justify-content:center; align-items:center; font-size:8px; color:#718096; text-align:center; padding: 2px;">No Photo</div>`;
+                
+                // Initialize default properties if missing
+                if (!s.feeStatus) s.feeStatus = "unpaid";
+                if (!s.status) s.status = "active";
+                if (!s.amountPaid) s.amountPaid = "0";
+
+                // Count statistics
+                if (s.status === "active") {
+                    activeCount++;
+                } else {
+                    tcCount++;
+                }
+                totalCollected += parseFloat(s.amountPaid || 0);
+
+                let isLeaved = s.status === "leaved";
+                let isPaid = s.feeStatus === "paid";
+                
+                let statusBadgeHTML = "";
+                let actionButtonHTML = "";
+
+                if (isLeaved) {
+                    statusBadgeHTML = `<span class="status-badge status-tc">🚫 Leaved (T.C.)</span>`;
+                    actionButtonHTML = `
+                        <button class="btn-card-tc" onclick="openTCDialog(${i})">Print T.C.</button>
+                        <button class="btn-card-leave" onclick="toggleStudentStatus(${i})">Re-Activate</button>
+                    `;
+                } else {
+                    // Check monthly cycle complete status
+                    let monthCompleted = isMonthCompleted(s);
+                    
+                    if (isPaid && monthCompleted) {
+                        statusBadgeHTML = `<span class="status-badge status-overdue">⚠️ Due (Month Overdue)</span>`;
+                        actionButtonHTML = `
+                            <button class="btn-card-collect" onclick="openCollectFeeModal(${i})">Collect Fee</button>
+                            <button class="btn-card-remind" onclick="openReminderModal(${i}, true)">Remind</button>
+                            <button class="btn-card-leave" onclick="toggleStudentStatus(${i})">Mark Leaved</button>
+                        `;
+                    } else if (isPaid) {
+                        statusBadgeHTML = `<span class="status-badge status-paid">🟢 Paid</span>`;
+                        actionButtonHTML = `
+                            <button class="btn-card-print" style="background:#4a5568;" onclick="reprintBill(${i})">Bill Receipt</button>
+                            <button class="btn-card-leave" onclick="toggleStudentStatus(${i})">Mark Leaved</button>
+                        `;
+                    } else {
+                        statusBadgeHTML = `<span class="status-badge status-unpaid">🔴 Unpaid (${s.fee})</span>`;
+                        actionButtonHTML = `
+                            <button class="btn-card-collect" onclick="openCollectFeeModal(${i})">Collect Fee</button>
+                            <button class="btn-card-remind" onclick="openReminderModal(${i}, false)">Remind</button>
+                            <button class="btn-card-leave" onclick="toggleStudentStatus(${i})">Mark Leaved</button>
+                        `;
+                    }
+                }
+
                 h += `
                 <div class="student-card">
                     <div class="student-card-info">
@@ -753,17 +1044,26 @@
                             <div class="student-card-sub">Reg ID: ${s.regNo} | Class: ${s.classVal}</div>
                             <div class="student-card-sub" style="font-size:0.75rem;">Father: ${s.fName}</div>
                             <div class="student-card-sub" style="font-size:0.75rem; font-weight:600; color:var(--navy);">Mob: ${s.sPhone || 'N/A'}</div>
+                            <div>${statusBadgeHTML}</div>
                         </div>
                     </div>
                     <div class="student-card-actions">
-                        <button class="btn-card-print" onclick="preparePrintByIndex(${i})">Print</button>
+                        <button class="btn-card-print" onclick="preparePrintByIndex(${i})">Print Admit</button>
                         <button class="btn-card-edit" onclick="editStudent(${i})">Edit</button>
+                        ${actionButtonHTML}
                         <button class="btn-card-del" onclick="deleteStudent(${i})">Delete</button>
                     </div>
                 </div>`;
             });
             cardContainer.innerHTML = h;
             updateBulkPrintSelects();
+            updateStats(activeCount, tcCount, totalCollected);
+        }
+
+        function updateStats(active, tc, collected) {
+            document.getElementById('statActiveCount').innerText = active;
+            document.getElementById('statTCCount').innerText = tc;
+            document.getElementById('statTotalCollected').innerText = "₹ " + collected;
         }
 
         function updateBulkPrintSelects() {
@@ -891,168 +1191,459 @@
             preparePrint(list);
         }
 
-        function deleteStudent(i) {
-            if(prompt("Enter Password:") !== ADMIN_PASS) return;
-            let db = JSON.parse(localStorage.getItem('db_safe'));
-            db.splice(i,1);
-            localStorage.setItem('db_safe', JSON.stringify(db));
-            loadStudents();
-            setDefaultRegNo();
-        }
-
         function closeOverlay() {
             document.getElementById('print-overlay').style.display = 'none';
         }
 
-        // 6. CSV IMPORT & EXPORT FUNCTIONS
-        function escapeCSV(val) {
-            if (val === undefined || val === null) return '';
-            let str = String(val);
-            if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-                return '"' + str.replace(/"/g, '""') + '"';
-            }
-            return str;
-        }
+        // ================== NEW FEES DUES & REMINDER LOGIC ==================
 
-        function exportToCSV() {
-            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
-            if (db.length === 0) return alert("No records found to export.");
-            
-            const headers = ["regNo", "sName", "fName", "mName", "sPhone", "admDate", "classVal", "discount", "fee", "subjects", "photo"];
-            let csvContent = headers.join(",") + "\n";
-            
-            db.forEach(s => {
-                let row = headers.map(h => escapeCSV(s[h]));
-                csvContent += row.join(",") + "\n";
-            });
-            
-            try {
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.setAttribute("href", url);
-                link.setAttribute("download", `AFL_Students_Backup_${new Date().toISOString().slice(0,10)}.csv`);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            } catch (e) {
-                alert("Failed to export: " + e.message);
-            }
-        }
-
-        function triggerCSVImport(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                processImportedCSV(text);
-            };
-            reader.readAsText(file);
-            event.target.value = ''; // Reset file input selection
-        }
-
-        // Robust CSV Parser that handles double quotes, commas, and multiline Base64 data safely
-        function parseCSV(text) {
-            let lines = [];
-            let row = [""];
-            let inQuotes = false;
-            for (let i = 0; i < text.length; i++) {
-                let c = text[i];
-                let next = text[i+1];
-                if (c === '"') {
-                    if (inQuotes && next === '"') {
-                        row[row.length - 1] += '"';
-                        i++;
-                    } else {
-                        inQuotes = !inQuotes;
-                    }
-                } else if (c === ',' && !inQuotes) {
-                    row.push('');
-                } else if ((c === '\r' || c === '\n') && !inQuotes) {
-                    if (c === '\r' && next === '\n') { i++; }
-                    lines.push(row);
-                    row = [''];
-                } else {
-                    row[row.length - 1] += c;
-                }
-            }
-            if (row.length > 1 || row[0] !== '') {
-                lines.push(row);
-            }
-            return lines;
-        }
-
-        function processImportedCSV(text) {
-            const rows = parseCSV(text);
-            if (rows.length < 2) return alert("Invalid CSV file structure or file is empty.");
-            
-            const headers = rows[0].map(h => h.trim());
-            const expectedHeaders = ["regNo", "sName", "fName", "mName", "sPhone", "admDate", "classVal", "discount", "fee", "subjects", "photo"];
-            
-            // Map header column indices
-            const headerMap = {};
-            expectedHeaders.forEach(eh => {
-                const idx = headers.indexOf(eh);
-                if (idx !== -1) headerMap[eh] = idx;
-            });
-            
-            if (headerMap["regNo"] === undefined) {
-                return alert("Error: CSV must contain at least a 'regNo' column.");
-            }
-            
-            let importedStudents = [];
-            for (let i = 1; i < rows.length; i++) {
-                let row = rows[i];
-                if (row.length < headers.length) continue; 
-                
-                let s = {};
-                expectedHeaders.forEach(eh => {
-                    const colIdx = headerMap[eh];
-                    s[eh] = (colIdx !== undefined && colIdx < row.length) ? row[colIdx] : "";
-                });
-                
-                if (s.regNo && s.sName) {
-                    importedStudents.push(s);
-                }
-            }
-            
-            if (importedStudents.length === 0) {
-                return alert("No valid student records found in this CSV file.");
-            }
-            
-            // Ask for append vs overwrite
-            const choice = confirm(`Found ${importedStudents.length} records.\n\nClick 'OK' to APPEND (adds new, updates matching Reg IDs).\nClick 'Cancel' to OVERWRITE (completely replaces current database).`);
-            
-            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
-            
-            if (choice) {
-                let updatedCount = 0;
-                let addedCount = 0;
-                importedStudents.forEach(imp => {
-                    let existingIdx = db.findIndex(x => x.regNo === imp.regNo);
-                    if (existingIdx !== -1) {
-                        db[existingIdx] = imp;
-                        updatedCount++;
-                    } else {
-                        db.push(imp);
-                        addedCount++;
-                    }
-                });
-                alert(`Database Updated successfully.\nAdded: ${addedCount} new records\nUpdated: ${updatedCount} existing records.`);
+        // Generates polite Hindi message, checking if it is standard unpaid or monthly cycle overdue
+        function getHindiReminderMessage(s, isOverdue) {
+            if (isOverdue) {
+                return `नमस्ते, अलोन फ्लायर्स लर्निंग (Alone Flyer's Learning), पाली की ओर से। आपके बच्चे ${s.sName} (रजिस्ट्रेशन नंबर: ${s.regNo}, कक्षा: ${s.classVal}) की मासिक फीस का समय पूरा हो चुका है। सादर अनुरोध है कि अगले महीने की फीस ${s.fee} जमा करवाने का कष्ट करें। धन्यवाद! संपर्क: 8696602827।`;
             } else {
-                const finalConfirm = confirm("Are you sure you want to completely OVERWRITE your local database? This cannot be undone.");
-                if (!finalConfirm) return;
-                db = importedStudents;
-                alert(`Database successfully replaced with ${db.length} imported records.`);
+                return `नमस्ते, अलोन फ्लायर्स लर्निंग (Alone Flyer's Learning), पाली की ओर से। सादर अनुरोध है कि आपके बच्चे ${s.sName} (रजिस्ट्रेशन नंबर: ${s.regNo}, कक्षा: ${s.classVal}) की बकाया फीस ${s.fee} जमा करवाने का कष्ट करें। यदि आप पहले ही फीस जमा करवा चुके हैं तो कृपया इस संदेश को अनदेखा करें। संपर्क: 8696602827। धन्यवाद!`;
             }
-            
-            localStorage.setItem('db_safe', JSON.stringify(db));
-            loadStudents();
-            setDefaultRegNo();
         }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Launches Modal displaying text preview and One-Click send buttons
+        function openReminderModal(i, isOverdue) {
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            let s = db[i];
+            let msg = getHindiReminderMessage(s, isOverdue);
+            
+            document.getElementById('reminderPreviewText').innerText = msg;
+            
+            // Configure WhatsApp Send Action
+            document.getElementById('whatsappSendBtn').onclick = function() {
+                let formattedPhone = s.sPhone.trim();
+                if (formattedPhone.length === 10) formattedPhone = "91" + formattedPhone;
+                const waUrl = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(msg)}`;
+                window.open(waUrl, '_blank');
+            };
+
+            // Configure Native SMS Send Action
+            document.getElementById('smsSendBtn').onclick = function() {
+                const smsUrl = `sms:${s.sPhone}?body=${encodeURIComponent(msg)}`;
+                window.location.href = smsUrl;
+            };
+
+            openModal('reminderModal');
+        }
+
+        // Collect Fee Modals
+        function openCollectFeeModal(i) {
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            let s = db[i];
+            activeFeeStudentIndex = i;
+
+            // Extract numeric value safely to set collect field defaults
+            let numericFee = s.fee.replace(/[^\d]/g, '');
+            document.getElementById('collectNetDisplay').value = s.fee;
+            document.getElementById('collectPaidAmount').value = numericFee;
+
+            openModal('feeModal');
+        }
+
+        function submitCollectFee() {
+            let paidAmount = document.getElementById('collectPaidAmount').value.trim();
+            if (!paidAmount || isNaN(paidAmount) || parseFloat(paidAmount) <= 0) {
+                return alert("Please enter a valid payment amount.");
+            }
+
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            let s = db[activeFeeStudentIndex];
+
+            // Mark paid status and record timestamp
+            s.feeStatus = "paid";
+            const today = new Date();
+            s.datePaid = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+            s.amountPaid = paidAmount;
+
+            db[activeFeeStudentIndex] = s;
+            localStorage.setItem('db_safe', JSON.stringify(db));
+
+            closeModal('feeModal');
+            loadStudents();
+
+            // Fire Receipt Canvas Generation Dialog
+            generateBillCanvas(s);
+        }
+
+        // Reprint bill option for already paid cards
+        function reprintBill(i) {
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            let s = db[i];
+            generateBillCanvas(s);
+        }
+
+        // Draws beautiful HD payment receipt on localized HTML5 Canvas
+        function generateBillCanvas(s) {
+            const canvas = document.getElementById('receiptCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size dynamically for HD rendering (1000x1280)
+            canvas.width = 1000;
+            canvas.height = 1280;
+
+            // Reset scale and clear
+            ctx.restore();
+            ctx.save();
+            // Scale by 2x for sharp HD output elements
+            ctx.scale(2, 2);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, 500, 640);
+
+            // Navy Header Border Top Accent
+            ctx.fillStyle = '#003366';
+            ctx.fillRect(0, 0, 500, 14);
+
+            // Gold Header Border Under-Accent
+            ctx.fillStyle = '#f39c12';
+            ctx.fillRect(0, 14, 500, 4);
+
+            // Write Header Info
+            ctx.fillStyle = '#003366';
+            ctx.font = 'bold 24px Arial, Helvetica';
+            ctx.textAlign = 'center';
+            ctx.fillText("ALONE FLYER'S LEARNING", 250, 55);
+
+            ctx.fillStyle = '#4a5568';
+            ctx.font = '12px Arial, Helvetica';
+            ctx.fillText("#39, Malviya Colony, Guda Kallan - Pali (306103)", 250, 78);
+            ctx.fillText("Ph: 8696602827 | Email: malviyaclassess@gmail.com", 250, 96);
+
+            // Draw Divider Line
+            ctx.strokeStyle = '#cbd5e0';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(20, 115);
+            ctx.lineTo(480, 115);
+            ctx.stroke();
+
+            // Write Invoice Title and ID Info
+            ctx.fillStyle = '#2d3748';
+            ctx.font = 'bold 16px Arial, Helvetica';
+            ctx.textAlign = 'left';
+            ctx.fillText("FEE PAYMENT RECEIPT", 25, 145);
+
+            // Auto-Generate a Receipt Number with Timestamp
+            let recNo = `AFL-REC-${s.regNo}-${s.datePaid.replace(/-/g, '')}`;
+            ctx.font = '11px Arial, Helvetica';
+            ctx.fillStyle = '#718096';
+            ctx.fillText(`Receipt No: ${recNo}`, 25, 165);
+            ctx.fillText(`Date: ${s.datePaid || 'N/A'}`, 25, 180);
+
+            // Student Meta Box Border
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.strokeRect(25, 200, 450, 180);
+            ctx.fillStyle = '#f7fafc';
+            ctx.fillRect(26, 201, 448, 178);
+
+            // Write Student Meta values inside box
+            ctx.fillStyle = '#4a5568';
+            ctx.font = 'bold 13px Arial, Helvetica';
+            ctx.fillText("Student Details:", 40, 225);
+
+            ctx.font = '12px Arial, Helvetica';
+            ctx.fillStyle = '#2d3748';
+            
+            // Grid Rows of Meta Details
+            ctx.fillText(`Registration No:`, 40, 255);
+            ctx.fillText(`${s.regNo}`, 160, 255);
+            
+            ctx.fillText(`Student Name:`, 40, 280);
+            ctx.fillText(`${s.sName.toUpperCase()}`, 160, 280);
+
+            ctx.fillText(`Father's Name:`, 40, 305);
+            ctx.fillText(`${s.fName.toUpperCase()}`, 160, 305);
+
+            ctx.fillText(`Class Name:`, 40, 330);
+            ctx.fillText(`Class ${s.classVal}`, 160, 330);
+
+            ctx.fillText(`Course Subjects:`, 40, 355);
+            ctx.fillText(`${s.subjects}`, 160, 355);
+
+            // Transaction details Header
+            ctx.fillStyle = '#003366';
+            ctx.font = 'bold 13px Arial, Helvetica';
+            ctx.fillText("Payment Particulars", 25, 410);
+
+            // Payment Grid Table
+            ctx.strokeStyle = '#a0aec0';
+            ctx.beginPath();
+            ctx.moveTo(25, 420);
+            ctx.lineTo(475, 420);
+            ctx.stroke();
+
+            ctx.fillStyle = '#2d3748';
+            ctx.font = '12px Arial, Helvetica';
+            ctx.fillText("Description", 30, 440);
+            ctx.textAlign = 'right';
+            ctx.fillText("Amount", 470, 440);
+
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.beginPath();
+            ctx.moveTo(25, 450);
+            ctx.lineTo(475, 450);
+            ctx.stroke();
+
+            ctx.textAlign = 'left';
+            ctx.fillText("Term Registration Admission & Tuition Fee", 30, 475);
+            ctx.textAlign = 'right';
+            ctx.font = 'bold 12px Arial, Helvetica';
+            ctx.fillText(`₹ ${s.amountPaid || s.fee.replace(/[^\d]/g, '')}`, 470, 475);
+
+            // Total Block Box
+            ctx.fillStyle = '#edf2f7';
+            ctx.fillRect(280, 505, 195, 35);
+            ctx.strokeStyle = '#cbd5e0';
+            ctx.strokeRect(280, 505, 195, 35);
+
+            ctx.fillStyle = '#2d3748';
+            ctx.font = 'bold 12px Arial, Helvetica';
+            ctx.textAlign = 'left';
+            ctx.fillText("Total Paid:", 290, 527);
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#28a745';
+            ctx.fillText(`₹ ${s.amountPaid || s.fee.replace(/[^\d]/g, '')}`, 465, 527);
+
+            // Footer Signatures/Closing Stamp details
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#718096';
+            ctx.font = 'italic 11px Arial, Helvetica';
+            ctx.fillText("Thank you for choosing Alone Flyer's Learning", 250, 575);
+
+            // Draw Sign Line
+            ctx.strokeStyle = '#2d3748';
+            ctx.beginPath();
+            ctx.moveTo(350, 615);
+            ctx.lineTo(470, 615);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#2d3748';
+            ctx.font = 'bold 10px Arial, Helvetica';
+            ctx.textAlign = 'center';
+            ctx.fillText("Authorized Signatory (H.O.D)", 410, 628);
+
+            // Trigger modal display with compiled canvas
+            openModal('billModal');
+        }
+
+        // Download the HTML5 Canvas directly as a high resolution HD .png image
+        function downloadBillAsPhoto() {
+            const canvas = document.getElementById('receiptCanvas');
+            const dataUrl = canvas.toDataURL('image/png', 1.0); // Maximum quality factor
+            
+            const link = document.createElement('a');
+            link.download = `AFL_Bill_Receipt_HD_${Date.now()}.png`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Direct printer interface support via hidden window injection
+        function printReceiptFromCanvas() {
+            const canvas = document.getElementById('receiptCanvas');
+            const dataUrl = canvas.toDataURL('image/png');
+
+            const pWindow = window.open('', '_blank');
+            pWindow.document.write(`
+                <html>
+                <head>
+                    <title>Print Receipt</title>
+                    <style>
+                        body { margin: 0; display: flex; justify-content: center; align-items: center; }
+                        img { max-width: 100%; height: auto; }
+                    </style>
+                </head>
+                <body onload="window.print(); window.close();">
+                    <img src="${dataUrl}">
+                </body>
+                </html>
+            `);
+            pWindow.document.close();
+        }
+
+        // ================== TRANSFER CERTIFICATE (T.C.) LOGIC ==================
+
+        function openTCDialog(i) {
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            let s = db[i];
+            generateTCCanvas(s);
+        }
+
+        // Draws highly polished HD Transfer Certificate (T.C.) on HTML5 Canvas
+        function generateTCCanvas(s) {
+            const canvas = document.getElementById('tcCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set HD Dimensions
+            canvas.width = 1000;
+            canvas.height = 1300;
+
+            ctx.restore();
+            ctx.save();
+            ctx.scale(2, 2); // 2x context scaling for HD elements
+
+            // White Background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, 500, 650);
+
+            // Elegant Navy Border Frame
+            ctx.strokeStyle = '#003366';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(10, 10, 480, 630);
+
+            // Double Gold Inner Frame
+            ctx.strokeStyle = '#f39c12';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(18, 18, 464, 614);
+
+            // Header Elements
+            ctx.fillStyle = '#003366';
+            ctx.font = 'bold 22px Arial, Helvetica';
+            ctx.textAlign = 'center';
+            ctx.fillText("ALONE FLYER'S LEARNING", 250, 60);
+
+            ctx.fillStyle = '#4a5568';
+            ctx.font = 'italic 11px Arial, Helvetica';
+            ctx.fillText("#39, Malviya Colony, Guda Kallan - Pali (306103)", 250, 80);
+            ctx.fillText("Ph: 8696602827 | Email: malviyaclassess@gmail.com", 250, 95);
+
+            // Decorative Banner
+            ctx.fillStyle = '#003366';
+            ctx.fillRect(100, 115, 300, 30);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 13px Arial, Helvetica';
+            ctx.fillText("TRANSFER CERTIFICATE", 250, 134);
+
+            // Certificate Details
+            ctx.fillStyle = '#2d3748';
+            ctx.font = 'bold 11px Arial, Helvetica';
+            ctx.textAlign = 'left';
+            
+            let tcNo = `AFL-TC-${s.regNo}`;
+            ctx.fillText(`T.C. No: ${tcNo}`, 35, 175);
+            ctx.textAlign = 'right';
+            ctx.fillText(`Reg No: ${s.regNo}`, 465, 175);
+
+            // Draw Divider
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(35, 185);
+            ctx.lineTo(465, 185);
+            ctx.stroke();
+
+            // Main Details Block
+            ctx.fillStyle = '#2d3748';
+            ctx.font = '12px Arial, Helvetica';
+            ctx.textAlign = 'left';
+
+            let lineY = 220;
+            const lineSpacing = 32;
+
+            function drawTCLabelValue(lbl, val) {
+                ctx.fillStyle = '#4a5568';
+                ctx.font = 'bold 12px Arial, Helvetica';
+                ctx.fillText(lbl, 35, lineY);
+
+                ctx.fillStyle = '#2d3748';
+                ctx.font = 'bold 12px Arial, Helvetica';
+                // Underline line
+                ctx.strokeStyle = '#cbd5e0';
+                ctx.beginPath();
+                ctx.moveTo(180, lineY + 3);
+                ctx.lineTo(465, lineY + 3);
+                ctx.stroke();
+
+                ctx.fillText(val ? val.toUpperCase() : "N/A", 185, lineY);
+                lineY += lineSpacing;
+            }
+
+            drawTCLabelValue("1. Pupil's Name:", s.sName);
+            drawTCLabelValue("2. Father's Name:", s.fName);
+            drawTCLabelValue("3. Mother's Name:", s.mName);
+            drawTCLabelValue("4. Contact Number:", s.sPhone);
+            drawTCLabelValue("5. Date of Admission:", formatDate(s.admDate));
+            drawTCLabelValue("6. Class at Leaving:", `Class ${s.classVal}`);
+            drawTCLabelValue("7. Subjects Studied:", s.subjects);
+            
+            // Get current paid date or stamp current local system date as termination date
+            let leaveDate = s.datePaid || formatDate(new Date().toISOString().split('T')[0]);
+            drawTCLabelValue("8. Date of Discharge:", leaveDate);
+            drawTCLabelValue("9. Student Conduct:", "GOOD");
+            drawTCLabelValue("10. Reason for leaving:", "COURSE COMPLETED");
+
+            // Double Signature lines
+            ctx.strokeStyle = '#2d3748';
+            ctx.lineWidth = 1.5;
+            
+            // Left Sign
+            ctx.beginPath();
+            ctx.moveTo(35, 595);
+            ctx.lineTo(150, 595);
+            ctx.stroke();
+            ctx.fillStyle = '#2d3748';
+            ctx.font = 'bold 10px Arial, Helvetica';
+            ctx.textAlign = 'center';
+            ctx.fillText("Prepared By", 92, 608);
+
+            // Right Sign
+            ctx.beginPath();
+            ctx.moveTo(350, 595);
+            ctx.lineTo(465, 595);
+            ctx.stroke();
+            ctx.fillText("Director Signatory (H.O.D)", 407, 608);
+
+            openModal('tcModal');
+        }
+
+        function downloadTCAsPhoto() {
+            const canvas = document.getElementById('tcCanvas');
+            const dataUrl = canvas.toDataURL('image/png', 1.0); // Maximum quality factor
+            
+            const link = document.createElement('a');
+            link.download = `AFL_Transfer_Certificate_HD_${Date.now()}.png`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function printTCFromCanvas() {
+            const canvas = document.getElementById('tcCanvas');
+            const dataUrl = canvas.toDataURL('image/png');
+
+            const pWindow = window.open('', '_blank');
+            pWindow.document.write(`
+                <html>
+                <head>
+                    <title>Print Transfer Certificate</title>
+                    <style>
+                        body { margin: 0; display: flex; justify-content: center; align-items: center; }
+                        img { max-width: 100%; height: auto; }
+                    </style>
+                </head>
+                <body onload="window.print(); window.close();">
+                    <img src="${dataUrl}">
+                </body>
+                </html>
+            `);
+            pWindow.document.close();
+        }
+
     </script>
 </body>
 </html>
