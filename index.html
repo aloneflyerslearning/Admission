@@ -43,7 +43,9 @@
         button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; color: white; font-weight: bold; font-size: 0.9rem; transition: 0.2s; }
         .btn-reg { background: #28a745; width: 100%; padding: 12px; font-size: 1rem; }
         .btn-update { background: #ffc107; color: black; width: 100%; padding: 12px; display: none; }
-        .btn-upload { background: #6c757d; } .btn-cam { background: #17a2b8; }
+        .btn-upload { background: #6c757d; } 
+        .btn-cam { background: #17a2b8; }
+        .btn-native-cam { background: #007bff; }
         .btn-bulk { background: #6f42c1; } .btn-clear { background: #dc3545; }
         .btn-snap { background: #28a745; margin-top: 5px; } .cancel-cam { background: #dc3545; margin-top: 5px; }
 
@@ -97,7 +99,7 @@
                 background: white;
             }
 
-            /* --- HEADER (Alignment Fixed Here) --- */
+            /* --- HEADER --- */
             .card-header {
                 background-color: #ffffff;
                 color: black;
@@ -105,19 +107,19 @@
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
-                align-items: center; /* Centers items horizontally in flex */
-                text-align: center;  /* Ensures text within items is centered */
+                align-items: center;
+                text-align: center;
                 position: relative;
                 border-bottom: 4px solid #f39c12;
             }
             .card-header h2 { 
                 margin: 0; font-size: 26px; font-weight: 900; 
                 text-transform: uppercase; letter-spacing: 1px; color: #000000;
-                width: 100%; text-align: center; /* Forces center */
+                width: 100%; text-align: center;
             }
             .card-header p { 
                 margin: 3px 0 0 0; font-size: 13px; font-weight: 600; color: #003366; 
-                width: 100%; text-align: center; /* Forces center */
+                width: 100%; text-align: center;
             }
             
             .copy-badge {
@@ -187,6 +189,10 @@
 
                 <div class="form-grid">
                     <div class="form-group">
+                        <label>Registration Number</label>
+                        <input type="text" id="regNoInput" placeholder="e.g. AFL1001" required>
+                    </div>
+                    <div class="form-group">
                         <label>Student Name</label>
                         <input type="text" id="sName" placeholder="FULL NAME (Block Letters)" required>
                     </div>
@@ -232,13 +238,19 @@
                     <!-- PHOTO -->
                     <div class="photo-wrapper">
                         <label>Student Photo</label>
-                        <div class="photo-controls">
-                            <button type="button" class="btn-upload" onclick="document.getElementById('photoInput').click()">📂 Upload</button>
-                            <button type="button" class="btn-cam" onclick="startCamera()">📷 Camera</button>
+                        <div class="photo-controls" style="display:flex; justify-content:center; gap:8px;">
+                            <button type="button" class="btn-upload" onclick="document.getElementById('photoInput').click()">📂 Upload File</button>
+                            <!-- Direct Mobile Camera Trigger (Recommended Fallback - Bypasses Browser/Domain Security Blocks) -->
+                            <button type="button" class="btn-native-cam" onclick="document.getElementById('nativeCameraInput').click()">📸 Rear Camera</button>
+                            <!-- Live Streaming Camera (Works only under HTTPS/Localhost) -->
+                            <button type="button" class="btn-cam" onclick="startCamera()">🎥 Live WebCam</button>
                         </div>
+                        
                         <input type="file" id="photoInput" accept="image/*" onchange="handleImageUpload(this)" style="display: none;">
+                        <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" onchange="handleImageUpload(this)" style="display: none;">
+                        
                         <div id="camera-container">
-                            <video id="video" autoplay></video>
+                            <video id="video" autoplay playsinline></video>
                             <button type="button" class="btn-snap" onclick="takeSnapshot()">📸 Capture</button>
                             <button type="button" class="cancel-cam" onclick="stopCamera()">❌ Cancel</button>
                         </div>
@@ -282,7 +294,11 @@
     <canvas id="compressCanvas" style="display:none;"></canvas>
 
     <script>
-        document.addEventListener('DOMContentLoaded', loadStudents);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStudents();
+            setDefaultRegNo();
+        });
+        
         let currentPhotoBase64 = "";
         let videoStream = null;
         const ADMIN_PASS = "AFL";
@@ -322,11 +338,48 @@
                 r.readAsDataURL(inp.files[0]);
             }
         }
+        
         function startCamera() {
-            document.getElementById('camera-container').style.display='flex';
-            document.getElementById('preview-image').style.display='none';
-            navigator.mediaDevices.getUserMedia({video:true}).then(s=>{videoStream=s;document.getElementById('video').srcObject=s;});
+            document.getElementById('camera-container').style.display = 'flex';
+            document.getElementById('preview-image').style.display = 'none';
+            
+            const constraints = {
+                video: { facingMode: "environment" }
+            };
+
+            // Attempt targeting the rear/back camera live feed
+            navigator.mediaDevices.getUserMedia(constraints)
+            .then(s => {
+                videoStream = s;
+                document.getElementById('video').srcObject = s;
+            })
+            .catch(err => {
+                console.warn("Could not start environment camera, attempting fallback to default device...", err);
+                
+                // Fallback attempt with generic configuration
+                navigator.mediaDevices.getUserMedia({ video: true })
+                .then(s => {
+                    videoStream = s;
+                    document.getElementById('video').srcObject = s;
+                })
+                .catch(e => {
+                    console.error("Camera access failed completely:", e);
+                    
+                    let errorMsg = "Unable to start Live WebCam.\n\n";
+                    if (window.location.protocol === "file:") {
+                        errorMsg += "⚠️ SITE SECURITY RESTRICTION:\nYou opened this file directly from your device folders (starts with 'file://'). Modern browsers block live webcam access for local files.\n\n👉 SOLUTION:\nTo use the camera on your phone/tablet, please click the blue '📸 Rear Camera' button instead! It works directly without needing any server setups.";
+                    } else if (window.location.protocol === "http:" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+                        errorMsg += "⚠️ SECURE CONNECTION REQUIRED:\nThe web browser requires a secure HTTPS connection to stream live video.\n\n👉 SOLUTION:\nUse the blue '📸 Rear Camera' button to take a direct photo instead.";
+                    } else {
+                        errorMsg += "⚠️ BROWSER ACCESS BLOCKED:\nPlease click the Lock/Settings icon next to the address bar and verify that Camera permission is set to 'Allow'.";
+                    }
+                    
+                    alert(errorMsg);
+                    stopCamera();
+                });
+            });
         }
+        
         function takeSnapshot() {
             const v = document.getElementById('video');
             const c = document.getElementById('compressCanvas');
@@ -344,15 +397,29 @@
             return `${d}-${m}-${y}`;
         }
 
+        // Set Default registration ID helper
+        function setDefaultRegNo() {
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            document.getElementById('regNoInput').value = "AFL100" + (db.length + 1);
+        }
+
         // 4. DATABASE
         function registerStudent() {
             const name = document.getElementById('sName').value;
+            const regNo = document.getElementById('regNoInput').value.trim();
             if(!name) return alert("Name required!");
+            if(!regNo) return alert("Registration Number required!");
+            
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
-            let id = "AFL100" + (db.length + 1);
+            
+            if (db.some(s => s.regNo === regNo)) {
+                if (!confirm("This Registration Number already exists. Do you want to proceed anyway?")) {
+                    return;
+                }
+            }
             
             let s = {
-                regNo: id,
+                regNo: regNo,
                 sName: name,
                 fName: document.getElementById('fName').value,
                 mName: document.getElementById('mName').value,
@@ -365,7 +432,7 @@
 
             try {
                 db.push(s); localStorage.setItem('db_safe', JSON.stringify(db));
-                alert("Registered! ID: " + id);
+                alert("Registered! ID: " + regNo);
                 resetForm(); loadStudents(); 
                 preparePrint([s]); 
             } catch(e) { alert("Storage Full or Error: " + e.message); }
@@ -375,6 +442,7 @@
             if(prompt("Admin Password:")!==ADMIN_PASS) return alert("Denied");
             let s = JSON.parse(localStorage.getItem('db_safe'))[i];
             document.getElementById('editIndex').value = i;
+            document.getElementById('regNoInput').value = s.regNo;
             document.getElementById('sName').value = s.sName;
             document.getElementById('fName').value = s.fName;
             document.getElementById('mName').value = s.mName;
@@ -390,6 +458,7 @@
         function updateStudent() {
             let i = document.getElementById('editIndex').value;
             let db = JSON.parse(localStorage.getItem('db_safe'));
+            db[i].regNo = document.getElementById('regNoInput').value.trim();
             db[i].sName = document.getElementById('sName').value;
             db[i].fName = document.getElementById('fName').value;
             db[i].mName = document.getElementById('mName').value;
@@ -408,6 +477,7 @@
             db.splice(i,1);
             localStorage.setItem('db_safe', JSON.stringify(db));
             loadStudents();
+            setDefaultRegNo();
         }
 
         function resetForm() {
@@ -416,6 +486,7 @@
             document.getElementById('preview-image').style.display='none';
             document.getElementById('btnSubmit').style.display='block';
             document.getElementById('btnUpdate').style.display='none';
+            setDefaultRegNo();
         }
 
         function loadStudents() {
