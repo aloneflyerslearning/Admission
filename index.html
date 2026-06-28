@@ -8,6 +8,10 @@
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         /* --- 1. MOBILE NATIVE STYLES --- */
@@ -164,6 +168,7 @@
             transition: background 0.2s, transform 0.1s;
         }
         button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
         
         .btn-reg { background: #28a745; width: 100%; }
         .btn-update { background: #ffc107; color: black; width: 100%; display: none; }
@@ -353,12 +358,92 @@
             justify-content: center; align-items: center; flex-direction: column;
             color: white; padding: 20px; text-align: center;
         }
-        .overlay-btn { background: var(--gold); color: black; padding: 15px 30px; font-size: 18px; border-radius: 8px; margin-top: 20px; }
-        .overlay-close { background: transparent; border: 1px solid white; margin-top: 15px; }
+        .overlay-btn { background: var(--gold); color: black; padding: 15px 30px; font-size: 16px; border-radius: 8px; margin-top: 10px; width: 100%; }
+        .overlay-close { background: transparent; border: 1px solid white; margin-top: 25px; }
 
         #print-area { display: none; }
 
-        /* ================== PRINT STYLES ================== */
+        /* ================== ADMIT CARD STYLES (Print & PDF Renderer) ================== */
+        .admit-card {
+            width: 100%;
+            height: 13.5cm;
+            border: 3px solid #003366; 
+            margin-bottom: 1cm;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            font-family: Arial, Helvetica, sans-serif;
+            background: white;
+        }
+        .card-header {
+            background-color: #ffffff;
+            color: black;
+            height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            border-bottom: 4px solid #f39c12;
+        }
+        .card-header h2 { 
+            margin: 0; font-size: 26px; font-weight: 900; 
+            text-transform: uppercase; letter-spacing: 1px; color: #000000;
+            width: 100%; text-align: center;
+        }
+        .card-header p { 
+            margin: 3px 0 0 0; font-size: 13px; font-weight: 600; color: #003366; 
+            width: 100%; text-align: center;
+        }
+        .copy-badge {
+            position: absolute; top: 8px; right: 8px;
+            background: white; color: #000; font-size: 10px;
+            font-weight: bold; padding: 3px 6px; border: 2px solid #000;
+        }
+        .card-body { flex: 1; padding: 12px 20px; display: flex; }
+        .details-col { width: 68%; padding-right: 15px; display: flex; flex-direction: column; justify-content: center; }
+        
+        .info-row { display: flex; align-items: center; border-bottom: 1px dotted #999; padding: 4.5px 0; font-size: 12px; }
+        .info-row:last-child { border-bottom: none; }
+        .lbl { width: 32%; color: #003366; font-weight: 800; font-size: 12px; }
+        .val { width: 68%; color: #000; font-weight: 600; text-transform: uppercase; padding-left: 5px; }
+
+        .visuals-col {
+            width: 32%; border-left: 1px solid #ccc;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: flex-start; padding-left: 10px;
+        }
+        .student-photo {
+            width: 95px; height: 115px; border: 1px solid #999;
+            padding: 3px; margin-bottom: 8px; object-fit: cover;
+        }
+        .qr-code-box { margin-bottom: 5px; }
+        .barcode-box svg { width: 100%; max-width: 160px; height: 30px; }
+        .barcode-text { font-size: 9px; text-align: center; margin-top: -2px;}
+
+        .card-footer {
+            height: 60px; border-top: 2px solid #003366;
+            display: flex; justify-content: space-between; align-items: flex-end;
+            padding: 5px 30px 15px 30px; background: #fff;
+        }
+        .sign-section { text-align: center; width: 200px; }
+        .sign-line { border-top: 2px solid #000; font-size: 11px; font-weight: bold; padding-top: 4px; color: #000; }
+        .digital-sign { font-family: 'Brush Script MT', cursive; font-size: 22px; color: #003366; margin-bottom: 2px; }
+
+        /* Thermal Print Rule */
+        .thermal-receipt {
+            width: 80mm;
+            padding: 4mm;
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            color: black;
+            background: white;
+        }
+
+        /* ================== PRINT MEDIA STYLES ================== */
         @media print {
             @page { size: A4; margin: 0.4cm; }
             body > * { display: none !important; }
@@ -369,86 +454,6 @@
             #print-area .info-row { display: flex; }
             #print-area .card-footer { display: flex; }
             #print-area .card-header { display: flex; }
-
-            .admit-card {
-                width: 100%;
-                height: 13.5cm;
-                border: 3px solid #003366; 
-                margin-bottom: 1cm;
-                box-sizing: border-box;
-                display: flex;
-                flex-direction: column;
-                position: relative;
-                font-family: Arial, Helvetica, sans-serif;
-                background: white;
-            }
-            .card-header {
-                background-color: #ffffff;
-                color: black;
-                height: 90px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                text-align: center;
-                position: relative;
-                border-bottom: 4px solid #f39c12;
-            }
-            .card-header h2 { 
-                margin: 0; font-size: 26px; font-weight: 900; 
-                text-transform: uppercase; letter-spacing: 1px; color: #000000;
-                width: 100%; text-align: center;
-            }
-            .card-header p { 
-                margin: 3px 0 0 0; font-size: 13px; font-weight: 600; color: #003366; 
-                width: 100%; text-align: center;
-            }
-            .copy-badge {
-                position: absolute; top: 8px; right: 8px;
-                background: white; color: #000; font-size: 10px;
-                font-weight: bold; padding: 3px 6px; border: 2px solid #000;
-            }
-            .card-body { flex: 1; padding: 12px 20px; }
-            .details-col { width: 68%; padding-right: 15px; flex-direction: column; justify-content: center; }
-            
-            /* Slightly minimized padding to comfortably fit 9 lines in 13.5cm */
-            .info-row { align-items: center; border-bottom: 1px dotted #999; padding: 4.5px 0; font-size: 12px; }
-            .info-row:last-child { border-bottom: none; }
-            .lbl { width: 32%; color: #003366; font-weight: 800; font-size: 12px; }
-            .val { width: 68%; color: #000; font-weight: 600; text-transform: uppercase; padding-left: 5px; }
-
-            .visuals-col {
-                width: 32%; border-left: 1px solid #ccc;
-                flex-direction: column; align-items: center;
-                justify-content: flex-start; padding-left: 10px;
-            }
-            .student-photo {
-                width: 95px; height: 115px; border: 1px solid #999;
-                padding: 3px; margin-bottom: 8px; object-fit: cover;
-            }
-            .qr-code-box { margin-bottom: 5px; }
-            .barcode-box svg { width: 100%; max-width: 160px; height: 30px; }
-            .barcode-text { font-size: 9px; text-align: center; margin-top: -2px;}
-
-            .card-footer {
-                height: 60px; border-top: 2px solid #003366;
-                justify-content: space-between; align-items: flex-end;
-                padding: 5px 30px 15px 30px; background: #fff;
-            }
-            .sign-section { text-align: center; width: 200px; }
-            .sign-line { border-top: 2px solid #000; font-size: 11px; font-weight: bold; padding-top: 4px; color: #000; }
-            .digital-sign { font-family: 'Brush Script MT', cursive; font-size: 22px; color: #003366; margin-bottom: 2px; }
-
-            /* Thermal Print Rule */
-            .thermal-receipt {
-                width: 80mm;
-                padding: 4mm;
-                font-family: monospace;
-                font-size: 11px;
-                line-height: 1.4;
-                color: black;
-                background: white;
-            }
         }
     </style>
 </head>
@@ -457,8 +462,11 @@
     <!-- OVERLAY -->
     <div id="print-overlay">
         <h2>📄 Document Ready</h2>
-        <p>If the printer options dialog didn't open automatically, click below:</p>
-        <button class="overlay-btn" onclick="window.print()">🖨️ PRINT NOW</button>
+        <p>Choose an action to print or save as PDF:</p>
+        <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 280px; margin: 0 auto;">
+            <button class="overlay-btn" onclick="window.print()">🖨️ PRINT NOW</button>
+            <button class="overlay-btn" style="background: #2b6cb0; color: white;" onclick="downloadAdmitCardPDF()">📥 DOWNLOAD PDF</button>
+        </div>
         <button class="overlay-close" onclick="closeOverlay()">Close</button>
     </div>
 
@@ -519,9 +527,12 @@
             <div id="canvas-bill-container" style="text-align: center; margin-bottom: 12px; overflow: auto; max-height: 300px; border: 1px solid #cbd5e0;">
                 <canvas id="receiptCanvas" width="1000" height="1280" style="width:100%; max-width:350px; display:block; margin:0 auto;"></canvas>
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <button class="btn-reg" style="background:#4a5568;" onclick="downloadBillAsPhoto()">📥 Download Photo</button>
-                <button class="btn-reg" style="background:var(--navy);" onclick="printReceiptFromCanvas()">🖨️ Print Receipt</button>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                    <button class="btn-reg" style="background:#4a5568;" onclick="downloadBillAsPhoto()">📥 Photo</button>
+                    <button class="btn-reg" style="background:#2b6cb0;" onclick="downloadBillAsPDF()">📄 Download PDF</button>
+                </div>
+                <button class="btn-reg" style="background:var(--navy); width:100%;" onclick="printReceiptFromCanvas()">🖨️ Print Receipt</button>
             </div>
         </div>
     </div>
@@ -534,9 +545,12 @@
             <div id="canvas-tc-container" style="text-align: center; margin-bottom: 12px; overflow: auto; max-height: 300px; border: 1px solid #cbd5e0;">
                 <canvas id="tcCanvas" width="1000" height="1300" style="width:100%; max-width:350px; display:block; margin:0 auto;"></canvas>
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <button class="btn-reg" style="background:#4a5568;" onclick="downloadTCAsPhoto()">📥 Download Photo</button>
-                <button class="btn-reg" style="background:var(--navy);" onclick="printTCFromCanvas()">🖨️ Print T.C.</button>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                    <button class="btn-reg" style="background:#4a5568;" onclick="downloadTCAsPhoto()">📥 Photo</button>
+                    <button class="btn-reg" style="background:#2b6cb0;" onclick="downloadTCAsPDF()">📄 Download PDF</button>
+                </div>
+                <button class="btn-reg" style="background:var(--navy); width:100%;" onclick="printTCFromCanvas()">🖨️ Print T.C.</button>
             </div>
         </div>
     </div>
@@ -928,7 +942,7 @@
             }
             if (!referenceDateStr) return false;
             const refDate = new Date(referenceDateStr);
-            const currentDate = new Date("2026-06-28");
+            const currentDate = new Date();
             const timeDiff = Math.abs(currentDate - refDate);
             const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
             return daysDiff >= 30;
@@ -1244,7 +1258,6 @@
             setTimeout(() => {
                 queue.forEach(q => { renderCodes(q.s, q.uid+"_s"); renderCodes(q.s, q.uid+"_o"); });
             }, 300);
-            setTimeout(() => { window.print(); }, 1000);
         }
 
         function bulkPrint() {
@@ -1654,7 +1667,7 @@
             ctx.fillText("Amount", 470, 440);
 
             ctx.strokeStyle = '#e2e8f0';
-            ctx.beginPath(); ctx.moveTo(25, 450); ctx.lineTo(475, 450); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(25, 450); ctx.lineTo(475, 450); stroke();
 
             ctx.textAlign = 'left';
             ctx.fillText("Term Registration Admission & Tuition Fee", 30, 475);
@@ -1718,6 +1731,25 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        function downloadBillAsPDF() {
+            try {
+                const { jsPDF } = window.jspdf;
+                const canvas = document.getElementById('receiptCanvas');
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                
+                const imgWidth = pdfWidth - 20; // 10mm margins on sides
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                pdf.addImage(imgData, 'JPEG', 10, 10, imgWidth, imgHeight);
+                pdf.save(`AFL_Receipt_${Date.now()}.pdf`);
+            } catch (err) {
+                alert("Could not generate PDF: " + err.message);
+            }
         }
 
         function printReceiptFromCanvas() {
@@ -1872,6 +1904,25 @@
             document.body.removeChild(link);
         }
 
+        function downloadTCAsPDF() {
+            try {
+                const { jsPDF } = window.jspdf;
+                const canvas = document.getElementById('tcCanvas');
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                
+                const imgWidth = pdfWidth - 20; // 10mm margins on sides
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                pdf.addImage(imgData, 'JPEG', 10, 10, imgWidth, imgHeight);
+                pdf.save(`AFL_TC_${Date.now()}.pdf`);
+            } catch (err) {
+                alert("Could not generate PDF: " + err.message);
+            }
+        }
+
         function printTCFromCanvas() {
             const canvas = document.getElementById('tcCanvas');
             const dataUrl = canvas.toDataURL('image/png');
@@ -1891,6 +1942,65 @@
                 </html>
             `);
             pWindow.document.close();
+        }
+
+        // ================== ADMIT CARD PDF GENERATOR ==================
+        async function downloadAdmitCardPDF() {
+            const downloadBtn = document.querySelector('#print-overlay button[onclick="downloadAdmitCardPDF()"]');
+            const originalText = downloadBtn.textContent;
+            downloadBtn.textContent = "⏳ GENERATING...";
+            downloadBtn.disabled = true;
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const printArea = document.getElementById('print-area');
+                
+                // Temporarily show element off-screen so html2canvas can construct visual structure correctly
+                const originalDisplay = printArea.style.display;
+                printArea.style.display = 'block';
+                printArea.style.position = 'absolute';
+                printArea.style.left = '-9999px';
+                printArea.style.width = '21cm'; // Map typical A4 width
+                
+                const cards = printArea.querySelectorAll('.admit-card');
+                if (cards.length === 0) {
+                    alert("No admit cards found to export.");
+                    printArea.style.display = originalDisplay;
+                    downloadBtn.textContent = originalText;
+                    downloadBtn.disabled = false;
+                    return;
+                }
+                
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                
+                for (let i = 0; i < cards.length; i++) {
+                    if (i > 0) {
+                        pdf.addPage();
+                    }
+                    
+                    const canvas = await html2canvas(cards[i], {
+                        scale: 2, 
+                        useCORS: true,
+                        logging: false
+                    });
+                    
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    const imgWidth = pdfWidth - 16; // 8mm margins left & right
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    
+                    pdf.addImage(imgData, 'JPEG', 8, 8, imgWidth, imgHeight);
+                }
+                
+                pdf.save(`AFL_AdmitCards_${Date.now()}.pdf`);
+                printArea.style.display = originalDisplay;
+            } catch (err) {
+                console.error("Admit Card PDF render error:", err);
+                alert("Failed to render PDF: " + err.message);
+            } finally {
+                downloadBtn.textContent = originalText;
+                downloadBtn.disabled = false;
+            }
         }
 
         // ================== REAL-TIME CUSTOM ANNOUNCEMENT BROADCASTER ==================
