@@ -278,12 +278,14 @@
                 background: white; color: #000; font-size: 10px;
                 font-weight: bold; padding: 3px 6px; border: 2px solid #000;
             }
-            .card-body { flex: 1; padding: 15px 20px; }
-            .details-col { width: 68%; padding-right: 20px; flex-direction: column; justify-content: center; }
-            .info-row { align-items: center; border-bottom: 1px dotted #999; padding: 7px 0; font-size: 13px; }
+            .card-body { flex: 1; padding: 12px 20px; }
+            .details-col { width: 68%; padding-right: 15px; flex-direction: column; justify-content: center; }
+            
+            /* Slightly minimized padding to comfortably fit 9 lines in 13.5cm */
+            .info-row { align-items: center; border-bottom: 1px dotted #999; padding: 4.5px 0; font-size: 12px; }
             .info-row:last-child { border-bottom: none; }
-            .lbl { width: 30%; color: #003366; font-weight: 800; font-size: 13px; }
-            .val { width: 70%; color: #000; font-weight: 600; text-transform: uppercase; padding-left: 5px; }
+            .lbl { width: 32%; color: #003366; font-weight: 800; font-size: 12px; }
+            .val { width: 68%; color: #000; font-weight: 600; text-transform: uppercase; padding-left: 5px; }
 
             .visuals-col {
                 width: 32%; border-left: 1px solid #ccc;
@@ -351,6 +353,10 @@
                         <input type="text" id="mName" required>
                     </div>
                     <div class="form-group">
+                        <label>Mobile Number</label>
+                        <input type="tel" id="sPhone" placeholder="Enter 10-digit number" pattern="[0-9]{10}" inputmode="tel" required>
+                    </div>
+                    <div class="form-group">
                         <label>Admission Date</label>
                         <input type="date" id="admDate" required>
                     </div>
@@ -373,7 +379,11 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Fee</label>
+                        <label>Discount (₹)</label>
+                        <input type="number" id="discountInput" value="0" min="0" oninput="calculateNetFee()" placeholder="e.g. 50">
+                    </div>
+                    <div class="form-group">
+                        <label>Final Net Fee</label>
                         <input type="text" id="feeDisplay" readonly>
                     </div>
                     <div class="form-group">
@@ -472,6 +482,7 @@
         
         let currentPhotoBase64 = "";
         let videoStream = null;
+        let baseFee = 0;
         const ADMIN_PASS = "AFL";
 
         // TAB NAVIGATION LOGIC
@@ -493,20 +504,50 @@
             stopCamera();
         }
 
-        // 1. CLASS LOGIC
-        function handleClassChange() {
-            const cls = parseInt(document.getElementById('classSelect').value);
-            const fee = document.getElementById('feeDisplay');
-            const sub = document.getElementById('subjects');
-            if(isNaN(cls)) { fee.value=""; sub.value=""; return; }
+        // Helper fee finder function
+        function getBaseFeeByClass(classStr) {
+            const cls = parseInt(classStr);
+            if(isNaN(cls)) return 0;
+            if(cls<=5) return 300; 
+            else if(cls<=8) return 400; 
+            else if(cls<=10) return 500; 
+            else if(cls==11) return 1000; 
+            else return 1500;
+        }
 
-            let f = 0;
-            if(cls<=5) f=300; else if(cls<=8) f=400; else if(cls<=10) f=500; else if(cls==11) f=1000; else f=1500;
-            fee.value = "₹ " + f;
+        // 1. CLASS & FEE LOGIC
+        function handleClassChange() {
+            const clsVal = document.getElementById('classSelect').value;
+            const sub = document.getElementById('subjects');
+            const cls = parseInt(clsVal);
+
+            if(isNaN(cls)) { 
+                baseFee = 0; 
+                sub.value=""; 
+                calculateNetFee(); 
+                return; 
+            }
+
+            baseFee = getBaseFeeByClass(clsVal);
 
             if(cls<=5) sub.value="All General Subjects";
             else if(cls<=10) sub.value="Science, Maths, English";
             else sub.value="Physics, Chemistry, Biology";
+
+            calculateNetFee();
+        }
+
+        function calculateNetFee() {
+            const discountInput = document.getElementById('discountInput');
+            const feeDisplay = document.getElementById('feeDisplay');
+            
+            let discount = parseFloat(discountInput.value);
+            if (isNaN(discount) || discount < 0) {
+                discount = 0;
+            }
+            
+            let netFee = Math.max(0, baseFee - discount);
+            feeDisplay.value = "₹ " + netFee;
         }
 
         // 2. IMAGE COMPRESSION
@@ -580,8 +621,12 @@
         function registerStudent() {
             const name = document.getElementById('sName').value;
             const regNo = document.getElementById('regNoInput').value.trim();
+            const phone = document.getElementById('sPhone').value.trim();
+
             if(!name) return alert("Student Name is required!");
             if(!regNo) return alert("Registration Number is required!");
+            if(!phone) return alert("Mobile Number is required!");
+            if(phone.length !== 10 || isNaN(phone)) return alert("Please enter a valid 10-digit mobile number!");
             
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             
@@ -596,8 +641,10 @@
                 sName: name,
                 fName: document.getElementById('fName').value,
                 mName: document.getElementById('mName').value,
+                sPhone: phone,
                 admDate: document.getElementById('admDate').value,
                 classVal: document.getElementById('classSelect').value,
+                discount: document.getElementById('discountInput').value,
                 fee: document.getElementById('feeDisplay').value,
                 subjects: document.getElementById('subjects').value,
                 photo: currentPhotoBase64
@@ -619,9 +666,14 @@
             document.getElementById('sName').value = s.sName;
             document.getElementById('fName').value = s.fName;
             document.getElementById('mName').value = s.mName;
+            document.getElementById('sPhone').value = s.sPhone || "";
             document.getElementById('admDate').value = s.admDate;
             document.getElementById('classSelect').value = s.classVal;
-            handleClassChange();
+            document.getElementById('discountInput').value = s.discount || 0;
+            
+            baseFee = getBaseFeeByClass(s.classVal);
+            calculateNetFee();
+
             document.getElementById('subjects').value = s.subjects;
             if(s.photo) setPhoto(s.photo);
             document.getElementById('btnSubmit').style.display='none';
@@ -634,15 +686,22 @@
         function updateStudent() {
             let i = document.getElementById('editIndex').value;
             let db = JSON.parse(localStorage.getItem('db_safe'));
+            
+            const phone = document.getElementById('sPhone').value.trim();
+            if(phone.length !== 10 || isNaN(phone)) return alert("Please enter a valid 10-digit mobile number!");
+
             db[i].regNo = document.getElementById('regNoInput').value.trim();
             db[i].sName = document.getElementById('sName').value;
             db[i].fName = document.getElementById('fName').value;
             db[i].mName = document.getElementById('mName').value;
+            db[i].sPhone = phone;
             db[i].admDate = document.getElementById('admDate').value;
             db[i].classVal = document.getElementById('classSelect').value;
+            db[i].discount = document.getElementById('discountInput').value;
             db[i].fee = document.getElementById('feeDisplay').value;
             db[i].subjects = document.getElementById('subjects').value;
             if(currentPhotoBase64) db[i].photo = currentPhotoBase64;
+            
             localStorage.setItem('db_safe', JSON.stringify(db));
             alert("Student details updated successfully!"); 
             resetForm(); 
@@ -663,6 +722,8 @@
         function resetForm() {
             document.getElementById('regForm').reset();
             currentPhotoBase64="";
+            baseFee = 0;
+            document.getElementById('discountInput').value = "0";
             document.getElementById('preview-image').style.display='none';
             document.getElementById('btnSubmit').style.display='block';
             document.getElementById('btnUpdate').style.display='none';
@@ -691,6 +752,7 @@
                             <div class="student-card-name">${s.sName}</div>
                             <div class="student-card-sub">Reg ID: ${s.regNo} | Class: ${s.classVal}</div>
                             <div class="student-card-sub" style="font-size:0.75rem;">Father: ${s.fName}</div>
+                            <div class="student-card-sub" style="font-size:0.75rem; font-weight:600; color:var(--navy);">Mob: ${s.sPhone || 'N/A'}</div>
                         </div>
                     </div>
                     <div class="student-card-actions">
@@ -753,6 +815,7 @@
                         <div class="info-row"><div class="lbl">Name:</div><div class="val">${s.sName}</div></div>
                         <div class="info-row"><div class="lbl">Father:</div><div class="val">${s.fName}</div></div>
                         <div class="info-row"><div class="lbl">Mother:</div><div class="val">${s.mName}</div></div>
+                        <div class="info-row"><div class="lbl">Mobile:</div><div class="val">${s.sPhone || 'N/A'}</div></div>
                         <div class="info-row"><div class="lbl">Class:</div><div class="val">${s.classVal}</div></div>
                         <div class="info-row"><div class="lbl">Subjects:</div><div class="val">${s.subjects}</div></div>
                         <div class="info-row"><div class="lbl">Fee:</div><div class="val">${s.fee}</div></div>
