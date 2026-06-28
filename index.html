@@ -450,6 +450,22 @@
                 
                 <button type="button" class="btn-bulk" onclick="bulkPrint()">🖨️ Bulk Print Range</button>
             </div>
+
+            <!-- BACKUP AND RESTORE CARD -->
+            <div class="settings-card">
+                <div class="section-title">Database Backup (CSV)</div>
+                <p style="font-size: 0.85rem; color:#718096; margin-top:0;">Export your registration list to a backup CSV file, or restore students from a previously exported backup.</p>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <button type="button" class="btn-bulk" style="background: #2b6cb0; font-size: 0.9rem;" onclick="exportToCSV()">📥 Export Database to CSV</button>
+                    
+                    <div style="border: 1px dashed var(--border-color); padding: 12px; border-radius: 8px; text-align: center; background: #f7fafc;">
+                        <label style="margin-bottom: 8px; display: block; text-align: left; font-weight: bold;">Import Backup CSV</label>
+                        <button type="button" class="btn-upload" style="width: 100%; height: 44px; background: #4a5568;" onclick="document.getElementById('csvFileInput').click()">📂 Select CSV File</button>
+                        <input type="file" id="csvFileInput" accept=".csv" onchange="triggerCSVImport(event)" style="display: none;">
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -893,6 +909,156 @@
 
         function closeOverlay() {
             document.getElementById('print-overlay').style.display = 'none';
+        }
+
+        // 6. CSV IMPORT & EXPORT FUNCTIONS
+        function escapeCSV(val) {
+            if (val === undefined || val === null) return '';
+            let str = String(val);
+            if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        }
+
+        function exportToCSV() {
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            if (db.length === 0) return alert("No records found to export.");
+            
+            const headers = ["regNo", "sName", "fName", "mName", "sPhone", "admDate", "classVal", "discount", "fee", "subjects", "photo"];
+            let csvContent = headers.join(",") + "\n";
+            
+            db.forEach(s => {
+                let row = headers.map(h => escapeCSV(s[h]));
+                csvContent += row.join(",") + "\n";
+            });
+            
+            try {
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", `AFL_Students_Backup_${new Date().toISOString().slice(0,10)}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (e) {
+                alert("Failed to export: " + e.message);
+            }
+        }
+
+        function triggerCSVImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                processImportedCSV(text);
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset file input selection
+        }
+
+        // Robust CSV Parser that handles double quotes, commas, and multiline Base64 data safely
+        function parseCSV(text) {
+            let lines = [];
+            let row = [""];
+            let inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                let c = text[i];
+                let next = text[i+1];
+                if (c === '"') {
+                    if (inQuotes && next === '"') {
+                        row[row.length - 1] += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (c === ',' && !inQuotes) {
+                    row.push('');
+                } else if ((c === '\r' || c === '\n') && !inQuotes) {
+                    if (c === '\r' && next === '\n') { i++; }
+                    lines.push(row);
+                    row = [''];
+                } else {
+                    row[row.length - 1] += c;
+                }
+            }
+            if (row.length > 1 || row[0] !== '') {
+                lines.push(row);
+            }
+            return lines;
+        }
+
+        function processImportedCSV(text) {
+            const rows = parseCSV(text);
+            if (rows.length < 2) return alert("Invalid CSV file structure or file is empty.");
+            
+            const headers = rows[0].map(h => h.trim());
+            const expectedHeaders = ["regNo", "sName", "fName", "mName", "sPhone", "admDate", "classVal", "discount", "fee", "subjects", "photo"];
+            
+            // Map header column indices
+            const headerMap = {};
+            expectedHeaders.forEach(eh => {
+                const idx = headers.indexOf(eh);
+                if (idx !== -1) headerMap[eh] = idx;
+            });
+            
+            if (headerMap["regNo"] === undefined) {
+                return alert("Error: CSV must contain at least a 'regNo' column.");
+            }
+            
+            let importedStudents = [];
+            for (let i = 1; i < rows.length; i++) {
+                let row = rows[i];
+                if (row.length < headers.length) continue; 
+                
+                let s = {};
+                expectedHeaders.forEach(eh => {
+                    const colIdx = headerMap[eh];
+                    s[eh] = (colIdx !== undefined && colIdx < row.length) ? row[colIdx] : "";
+                });
+                
+                if (s.regNo && s.sName) {
+                    importedStudents.push(s);
+                }
+            }
+            
+            if (importedStudents.length === 0) {
+                return alert("No valid student records found in this CSV file.");
+            }
+            
+            // Ask for append vs overwrite
+            const choice = confirm(`Found ${importedStudents.length} records.\n\nClick 'OK' to APPEND (adds new, updates matching Reg IDs).\nClick 'Cancel' to OVERWRITE (completely replaces current database).`);
+            
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            
+            if (choice) {
+                let updatedCount = 0;
+                let addedCount = 0;
+                importedStudents.forEach(imp => {
+                    let existingIdx = db.findIndex(x => x.regNo === imp.regNo);
+                    if (existingIdx !== -1) {
+                        db[existingIdx] = imp;
+                        updatedCount++;
+                    } else {
+                        db.push(imp);
+                        addedCount++;
+                    }
+                });
+                alert(`Database Updated successfully.\nAdded: ${addedCount} new records\nUpdated: ${updatedCount} existing records.`);
+            } else {
+                const finalConfirm = confirm("Are you sure you want to completely OVERWRITE your local database? This cannot be undone.");
+                if (!finalConfirm) return;
+                db = importedStudents;
+                alert(`Database successfully replaced with ${db.length} imported records.`);
+            }
+            
+            localStorage.setItem('db_safe', JSON.stringify(db));
+            loadStudents();
+            setDefaultRegNo();
         }
     </script>
 </body>
