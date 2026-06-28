@@ -112,9 +112,8 @@
         /* Form Inputs Optimized for Touch */
         .form-group { margin-bottom: 16px; }
         label { font-weight: 600; color: #4a5568; font-size: 0.85rem; margin-bottom: 6px; display: block; }
-        input, select { 
+        input, select, textarea { 
             width: 100%; 
-            height: 44px; /* Optimal mobile touch target height */
             padding: 10px 12px; 
             border: 1px solid #cbd5e0; 
             border-radius: 8px; 
@@ -123,7 +122,9 @@
             font-size: 0.95rem;
             transition: border-color 0.2s;
         }
-        input:focus, select:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.1); }
+        input, select { height: 44px; }
+        textarea { resize: vertical; min-height: 80px; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.1); }
         input[readonly] { background: #edf2f7; font-weight: bold; color: var(--navy); }
 
         /* Photo Interface */
@@ -318,6 +319,32 @@
         .btn-whatsapp { background: #25D366; color: white; }
         .btn-sms { background: #0078d4; color: white; }
 
+        /* Broadcast progress layout */
+        .broadcast-runner {
+            text-align: center;
+            padding: 15px 0;
+        }
+        .runner-number {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--navy);
+            margin-bottom: 4px;
+        }
+        .runner-progress {
+            background: #e2e8f0;
+            border-radius: 6px;
+            height: 8px;
+            width: 100%;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .runner-progress-fill {
+            background: var(--gold);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
         /* Overlay Layout */
         #print-overlay {
             display: none;
@@ -411,6 +438,17 @@
             .sign-section { text-align: center; width: 200px; }
             .sign-line { border-top: 2px solid #000; font-size: 11px; font-weight: bold; padding-top: 4px; color: #000; }
             .digital-sign { font-family: 'Brush Script MT', cursive; font-size: 22px; color: #003366; margin-bottom: 2px; }
+
+            /* Thermal Print Rule */
+            .thermal-receipt {
+                width: 80mm;
+                padding: 4mm;
+                font-family: monospace;
+                font-size: 11px;
+                line-height: 1.4;
+                color: black;
+                background: white;
+            }
         }
     </style>
 </head>
@@ -433,6 +471,25 @@
             <div class="remind-grid">
                 <button class="btn-whatsapp" id="whatsappSendBtn">💬 WhatsApp</button>
                 <button class="btn-sms" id="smsSendBtn">✉️ SMS App</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BROADCAST PROGRESS MODAL -->
+    <div id="broadcastModal" class="app-modal">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeModal('broadcastModal')">×</button>
+            <div class="modal-header">Sending Broadcast</div>
+            <div class="broadcast-runner">
+                <div class="runner-number" id="broadcastProgressText">0 / 0</div>
+                <div style="font-size:0.85rem; color:#718096;" id="broadcastTargetName">Preparing dispatch...</div>
+                <div class="runner-progress">
+                    <div class="runner-progress-fill" id="broadcastProgressBar"></div>
+                </div>
+                <div style="margin-top:15px; display:flex; flex-direction:column; gap:8px;">
+                    <button class="btn-reg" id="btnBroadcastSendNext" style="width:100%; background:var(--green);">🚀 Send & Next</button>
+                    <button class="btn-clear" style="width:100%;" onclick="closeModal('broadcastModal')">Stop Sending</button>
+                </div>
             </div>
         </div>
     </div>
@@ -460,7 +517,6 @@
             <button class="modal-close-btn" onclick="closeModal('billModal')">×</button>
             <div class="modal-header">Fee Receipt Generated</div>
             <div id="canvas-bill-container" style="text-align: center; margin-bottom: 12px; overflow: auto; max-height: 300px; border: 1px solid #cbd5e0;">
-                <!-- HD Canvas scaled via style to fit neatly -->
                 <canvas id="receiptCanvas" width="1000" height="1280" style="width:100%; max-width:350px; display:block; margin:0 auto;"></canvas>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
@@ -615,20 +671,49 @@
 
         <!-- ================= TAB 3: ADMIN PANEL ================= -->
         <div id="view-admin" class="tab-view">
+            <!-- ALL IN ONE BROADCASTER -->
             <div class="settings-card">
-                <div class="section-title">Bulk Print Settings</div>
-                <p style="font-size: 0.85rem; color:#718096; margin-top:0;">Select a range of student registration IDs to batch print their admit cards.</p>
-                
+                <div class="section-title">All-in-One Announcement dispatch</div>
+                <p style="font-size: 0.85rem; color:#718096; margin-top:0;">Send custom holiday, festival, or function updates to all parents with one click.</p>
                 <div class="form-group">
-                    <label>From:</label>
-                    <select id="printFrom"></select>
+                    <label>Select Template</label>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px;">
+                        <button type="button" class="btn-upload" onclick="applyBroadcastTemplate('holiday')" style="font-size:0.75rem;">🌴 Holiday</button>
+                        <button type="button" class="btn-upload" onclick="applyBroadcastTemplate('festival')" style="font-size:0.75rem;">🎉 Festival</button>
+                        <button type="button" class="btn-upload" onclick="applyBroadcastTemplate('function')" style="font-size:0.75rem;">🏫 Function</button>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label>To:</label>
-                    <select id="printTo"></select>
+                    <label>Custom Message (Hindi/English)</label>
+                    <textarea id="broadcastMessageText" placeholder="Write message details..."></textarea>
                 </div>
-                
-                <button type="button" class="btn-bulk" onclick="bulkPrint()">🖨️ Bulk Print Range</button>
+                <div class="form-group">
+                    <label>Choose Dispatch Channel</label>
+                    <select id="broadcastChannelSelect">
+                        <option value="whatsapp">💬 WhatsApp Web/App</option>
+                        <option value="sms">✉️ Native SMS Dispatch</option>
+                    </select>
+                </div>
+                <button type="button" class="btn-bulk" onclick="startBroadcastLoop()" style="background:var(--purple); font-size:0.9rem;">🚀 Start Broadcast Loop</button>
+            </div>
+
+            <!-- INSTITUTION SETUP CARD -->
+            <div class="settings-card">
+                <div class="section-title">Institution setup</div>
+                <p style="font-size: 0.85rem; color:#718096; margin-top:0;">Configure custom elements used during generation (T.C. and Bills).</p>
+                <div class="form-group">
+                    <label>Upload Logo (Emblem Shield fallback used by default)</label>
+                    <button type="button" class="btn-upload" style="width:100%;" onclick="document.getElementById('coachingLogoFileInput').click()">🛡️ Upload Logo Image</button>
+                    <input type="file" id="coachingLogoFileInput" accept="image/*" onchange="uploadCoachingLogo(this)" style="display:none;">
+                    <div id="coachingLogoPreview" style="margin-top:6px; font-size:0.8rem; color:var(--green); display:none;">Custom Logo Uploaded!</div>
+                </div>
+                <div class="form-group">
+                    <label>Upload Director Signature (Anil Malviya fallback used by default)</label>
+                    <button type="button" class="btn-upload" style="width:100%;" onclick="document.getElementById('directorSignFileInput').click()">✒️ Upload Signature Image</button>
+                    <input type="file" id="directorSignFileInput" accept="image/*" onchange="uploadDirectorSign(this)" style="display:none;">
+                    <div id="directorSignPreview" style="margin-top:6px; font-size:0.8rem; color:var(--green); display:none;">Custom Signature Uploaded!</div>
+                </div>
+                <button type="button" class="btn-clear" onclick="clearInstitutionSetup()" style="font-size:0.8rem;">🔄 Reset to Defaults</button>
             </div>
 
             <!-- BACKUP AND RESTORE CARD -->
@@ -661,7 +746,7 @@
             <span>Database</span>
         </button>
         <button class="nav-item" onclick="switchTab('view-admin', this)">
-            <svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4(1.08).73 1.69.98l.38-2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4.1.08.73 1.69.98l.38-2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
             <span>Admin</span>
         </button>
     </div>
@@ -674,6 +759,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadStudents();
             setDefaultRegNo();
+            loadInstitutionCustomization();
         });
         
         let currentPhotoBase64 = "";
@@ -682,26 +768,26 @@
         let activeFeeStudentIndex = null;
         const ADMIN_PASS = "AFL";
 
-        // TAB NAVIGATION LOGIC
+        // Broadcaster memory queue tracker
+        let broadcastQueue = [];
+        let broadcastPointer = 0;
+        let broadcastMsgText = "";
+        let broadcastType = "whatsapp";
+
+        // Tab switches
         function switchTab(viewId, element) {
-            // Hide all views
             document.querySelectorAll('.tab-view').forEach(view => {
                 view.classList.remove('active-view');
             });
-            // Show target view
             document.getElementById(viewId).classList.add('active-view');
-            
-            // Handle bottom navigator highlights
             document.querySelectorAll('.nav-item').forEach(btn => {
                 btn.classList.remove('active');
             });
             element.classList.add('active');
-            
-            // Stop camera if running
             stopCamera();
         }
 
-        // Helper fee finder function
+        // Base Fee
         function getBaseFeeByClass(classStr) {
             const cls = parseInt(classStr);
             if(isNaN(cls)) return 0;
@@ -724,7 +810,6 @@
                 calculateNetFee(); 
                 return; 
             }
-
             baseFee = getBaseFeeByClass(clsVal);
 
             if(cls<=5) {
@@ -734,19 +819,16 @@
             } else {
                 sub.value="Physics, Chemistry, Bio/Maths";
             }
-
             calculateNetFee();
         }
 
         function calculateNetFee() {
             const discountInput = document.getElementById('discountInput');
             const feeDisplay = document.getElementById('feeDisplay');
-            
             let discount = parseFloat(discountInput.value);
             if (isNaN(discount) || discount < 0) {
                 discount = 0;
             }
-            
             let netFee = Math.max(0, baseFee - discount);
             feeDisplay.value = "₹ " + netFee;
         }
@@ -774,7 +856,6 @@
         function startCamera() {
             document.getElementById('camera-container').style.display = 'flex';
             document.getElementById('preview-image').style.display = 'none';
-            
             const constraints = { video: { facingMode: "environment" } };
 
             navigator.mediaDevices.getUserMedia(constraints)
@@ -806,7 +887,6 @@
         function stopCamera() { if(videoStream) videoStream.getTracks().forEach(t=>t.stop()); document.getElementById('camera-container').style.display='none'; }
         function setPhoto(res) { currentPhotoBase64=res; const i=document.getElementById('preview-image'); i.src=res; i.style.display='block'; }
 
-        // 3. DATE FORMATTER
         function formatDate(dateStr) {
             if(!dateStr) return "";
             const [y, m, d] = dateStr.split('-');
@@ -818,9 +898,8 @@
             document.getElementById('regNoInput').value = "AFL100" + (db.length + 1);
         }
 
-        // Helper to check if 30 days have completed since registration or last payment date
         function isMonthCompleted(s) {
-            let referenceDateStr = s.admDate; // Fallback
+            let referenceDateStr = s.admDate;
             if (s.feeStatus === "paid" && s.datePaid) {
                 const parts = s.datePaid.split('-');
                 if (parts.length === 3) {
@@ -828,14 +907,10 @@
                 }
             }
             if (!referenceDateStr) return false;
-            
             const refDate = new Date(referenceDateStr);
-            // Current date context is June 28, 2026
             const currentDate = new Date("2026-06-28");
-            
             const timeDiff = Math.abs(currentDate - refDate);
             const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-            
             return daysDiff >= 30;
         }
 
@@ -851,7 +926,6 @@
             if(phone.length !== 10 || isNaN(phone)) return alert("Please enter a valid 10-digit mobile number!");
             
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
-            
             if (db.some(s => s.regNo === regNo)) {
                 if (!confirm("This registration number already exists. Proceed?")) {
                     return;
@@ -870,10 +944,10 @@
                 fee: document.getElementById('feeDisplay').value,
                 subjects: document.getElementById('subjects').value,
                 photo: currentPhotoBase64,
-                feeStatus: "unpaid", // default status
+                feeStatus: "unpaid",
                 datePaid: "",
                 amountPaid: "0",
-                status: "active" // default status
+                status: "active"
             };
 
             try {
@@ -904,15 +978,12 @@
             if(s.photo) setPhoto(s.photo);
             document.getElementById('btnSubmit').style.display='none';
             document.getElementById('btnUpdate').style.display='block';
-            
-            // Switch tab to registration view automatically
             switchTab('view-register', document.querySelectorAll('.nav-item')[0]);
         }
 
         function updateStudent() {
             let i = document.getElementById('editIndex').value;
             let db = JSON.parse(localStorage.getItem('db_safe'));
-            
             const phone = document.getElementById('sPhone').value.trim();
             if(phone.length !== 10 || isNaN(phone)) return alert("Please enter a valid 10-digit mobile number!");
 
@@ -932,15 +1003,12 @@
             alert("Student details updated successfully!"); 
             resetForm(); 
             loadStudents();
-            // Switch automatically to list view to check
             switchTab('view-database', document.querySelectorAll('.nav-item')[1]);
         }
 
-        // Toggle student active vs leaved status
         function toggleStudentStatus(i) {
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             let s = db[i];
-            
             if (!s.status) s.status = "active";
             
             if (s.status === "active") {
@@ -963,7 +1031,6 @@
             }
         }
 
-        // Renders student database as highly polished mobile cards
         function loadStudents() {
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             let cardContainer = document.getElementById('studentCardsContainer');
@@ -982,13 +1049,10 @@
 
             db.forEach((s, i) => {
                 let imgHTML = s.photo ? `<img src="${s.photo}" class="student-card-img">` : `<div class="student-card-img" style="display:flex; justify-content:center; align-items:center; font-size:8px; color:#718096; text-align:center; padding: 2px;">No Photo</div>`;
-                
-                // Initialize default properties if missing
                 if (!s.feeStatus) s.feeStatus = "unpaid";
                 if (!s.status) s.status = "active";
                 if (!s.amountPaid) s.amountPaid = "0";
 
-                // Count statistics
                 if (s.status === "active") {
                     activeCount++;
                 } else {
@@ -998,7 +1062,6 @@
 
                 let isLeaved = s.status === "leaved";
                 let isPaid = s.feeStatus === "paid";
-                
                 let statusBadgeHTML = "";
                 let actionButtonHTML = "";
 
@@ -1009,9 +1072,7 @@
                         <button class="btn-card-leave" onclick="toggleStudentStatus(${i})">Re-Activate</button>
                     `;
                 } else {
-                    // Check monthly cycle complete status
                     let monthCompleted = isMonthCompleted(s);
-                    
                     if (isPaid && monthCompleted) {
                         statusBadgeHTML = `<span class="status-badge status-overdue">⚠️ Due (Month Overdue)</span>`;
                         actionButtonHTML = `
@@ -1070,18 +1131,15 @@
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             let fromSelect = document.getElementById('printFrom');
             let toSelect = document.getElementById('printTo');
-            
             if (!fromSelect || !toSelect) return;
             
             fromSelect.innerHTML = "";
             toSelect.innerHTML = "";
-            
             if (db.length === 0) {
                 fromSelect.innerHTML = "<option value=''>-- No Data --</option>";
                 toSelect.innerHTML = "<option value=''>-- No Data --</option>";
                 return;
             }
-            
             db.forEach((s, idx) => {
                 let optFrom = document.createElement('option');
                 optFrom.value = idx;
@@ -1093,7 +1151,6 @@
                 optTo.textContent = `${s.regNo} (${s.sName})`;
                 toSelect.appendChild(optTo);
             });
-            
             fromSelect.value = 0;
             toSelect.value = db.length - 1;
         }
@@ -1177,9 +1234,7 @@
 
             let fromIdx = parseInt(document.getElementById('printFrom').value);
             let toIdx = parseInt(document.getElementById('printTo').value);
-
             if(isNaN(fromIdx) || isNaN(toIdx)) return alert("Select valid range indices.");
-
             if(fromIdx > toIdx) {
                 let temp = fromIdx;
                 fromIdx = toIdx;
@@ -1191,13 +1246,157 @@
             preparePrint(list);
         }
 
+        function deleteStudent(i) {
+            if(prompt("Enter Password:") !== ADMIN_PASS) return;
+            let db = JSON.parse(localStorage.getItem('db_safe'));
+            db.splice(i,1);
+            localStorage.setItem('db_safe', JSON.stringify(db));
+            loadStudents();
+            setDefaultRegNo();
+        }
+
         function closeOverlay() {
             document.getElementById('print-overlay').style.display = 'none';
         }
 
-        // ================== NEW FEES DUES & REMINDER LOGIC ==================
+        // 6. CSV IMPORT & EXPORT FUNCTIONS
+        function escapeCSV(val) {
+            if (val === undefined || val === null) return '';
+            let str = String(val);
+            if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        }
 
-        // Generates polite Hindi message, checking if it is standard unpaid or monthly cycle overdue
+        function exportToCSV() {
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            if (db.length === 0) return alert("No records found to export.");
+            
+            const headers = ["regNo", "sName", "fName", "mName", "sPhone", "admDate", "classVal", "discount", "fee", "subjects", "photo", "feeStatus", "datePaid"];
+            let csvContent = headers.join(",") + "\n";
+            db.forEach(s => {
+                let row = headers.map(h => escapeCSV(s[h]));
+                csvContent += row.join(",") + "\n";
+            });
+            
+            try {
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", `AFL_Students_Backup_${new Date().toISOString().slice(0,10)}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (e) { alert("Failed to export: " + e.message); }
+        }
+
+        function triggerCSVImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                processImportedCSV(text);
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function parseCSV(text) {
+            let lines = [];
+            let row = [""];
+            let inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                let c = text[i];
+                let next = text[i+1];
+                if (c === '"') {
+                    if (inQuotes && next === '"') {
+                        row[row.length - 1] += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (c === ',' && !inQuotes) {
+                    row.push('');
+                } else if ((c === '\r' || c === '\n') && !inQuotes) {
+                    if (c === '\r' && next === '\n') { i++; }
+                    lines.push(row);
+                    row = [''];
+                } else {
+                    row[row.length - 1] += c;
+                }
+            }
+            if (row.length > 1 || row[0] !== '') {
+                lines.push(row);
+            }
+            return lines;
+        }
+
+        function processImportedCSV(text) {
+            const rows = parseCSV(text);
+            if (rows.length < 2) return alert("Invalid CSV file structure or file is empty.");
+            
+            const headers = rows[0].map(h => h.trim());
+            const expectedHeaders = ["regNo", "sName", "fName", "mName", "sPhone", "admDate", "classVal", "discount", "fee", "subjects", "photo", "feeStatus", "datePaid"];
+            const headerMap = {};
+            expectedHeaders.forEach(eh => {
+                const idx = headers.indexOf(eh);
+                if (idx !== -1) headerMap[eh] = idx;
+            });
+            if (headerMap["regNo"] === undefined) {
+                return alert("Error: CSV must contain at least a 'regNo' column.");
+            }
+            
+            let importedStudents = [];
+            for (let i = 1; i < rows.length; i++) {
+                let row = rows[i];
+                if (row.length < headers.length) continue; 
+                let s = {};
+                expectedHeaders.forEach(eh => {
+                    const colIdx = headerMap[eh];
+                    s[eh] = (colIdx !== undefined && colIdx < row.length) ? row[colIdx] : "";
+                });
+                if (!s.feeStatus) s.feeStatus = "unpaid";
+                if (!s.datePaid) s.datePaid = "";
+                if (s.regNo && s.sName) {
+                    importedStudents.push(s);
+                }
+            }
+            if (importedStudents.length === 0) {
+                return alert("No valid student records found in this CSV file.");
+            }
+            
+            const choice = confirm(`Found ${importedStudents.length} records.\n\nClick 'OK' to APPEND.\nClick 'Cancel' to OVERWRITE.`);
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            if (choice) {
+                let updatedCount = 0;
+                let addedCount = 0;
+                importedStudents.forEach(imp => {
+                    let existingIdx = db.findIndex(x => x.regNo === imp.regNo);
+                    if (existingIdx !== -1) {
+                        db[existingIdx] = imp;
+                        updatedCount++;
+                    } else {
+                        db.push(imp);
+                        addedCount++;
+                    }
+                });
+                alert(`Database Updated successfully.\nAdded: ${addedCount}\nUpdated: ${updatedCount}`);
+            } else {
+                const finalConfirm = confirm("Are you sure you want to completely OVERWRITE your local database? This cannot be undone.");
+                if (!finalConfirm) return;
+                db = importedStudents;
+                alert(`Database successfully replaced with ${db.length} imported records.`);
+            }
+            localStorage.setItem('db_safe', JSON.stringify(db));
+            loadStudents();
+            setDefaultRegNo();
+        }
+
+        // ================== FEES DUES & REMINDER LOGIC ==================
         function getHindiReminderMessage(s, isOverdue) {
             if (isOverdue) {
                 return `नमस्ते, अलोन फ्लायर्स लर्निंग (Alone Flyer's Learning), पाली की ओर से। आपके बच्चे ${s.sName} (रजिस्ट्रेशन नंबर: ${s.regNo}, कक्षा: ${s.classVal}) की मासिक फीस का समय पूरा हो चुका है। सादर अनुरोध है कि अगले महीने की फीस ${s.fee} जमा करवाने का कष्ट करें। धन्यवाद! संपर्क: 8696602827।`;
@@ -1210,46 +1409,125 @@
             document.getElementById(modalId).classList.add('active');
         }
 
+        // Helper Canvas border paths
+        function drawRoundedRect(ctx, x, y, width, height, radius, fill, stroke) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            if (fill) ctx.fill();
+            if (stroke) ctx.stroke();
+        }
+
+        // Draws beautiful school crest logo using pure HTML5 vector paths
+        function drawShieldLogo(ctx, cx, cy, size) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            // Double border shield paths
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#003366';
+            ctx.fillStyle = '#ffffff';
+
+            ctx.beginPath();
+            ctx.moveTo(0, -size);
+            ctx.bezierCurveTo(size*0.7, -size, size, -size*0.3, size, 0);
+            ctx.bezierCurveTo(size, size*0.5, size*0.3, size*0.9, 0, size);
+            ctx.bezierCurveTo(-size*0.3, size*0.9, -size, size*0.5, -size, 0);
+            ctx.bezierCurveTo(-size, -size*0.3, -size*0.7, -size, 0, -size);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Inner Shield
+            ctx.strokeStyle = '#990000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, -size + 4);
+            ctx.bezierCurveTo(size*0.6, -size + 4, size - 4, -size*0.25, size - 4, 0);
+            ctx.bezierCurveTo(size - 4, size*0.45, size*0.25, size*0.8, 0, size - 4);
+            ctx.bezierCurveTo(-size*0.25, size*0.8, -size + 4, size*0.45, -size + 4, 0);
+            ctx.bezierCurveTo(-size + 4, -size*0.25, -size*0.6, -size + 4, 0, -size + 4);
+            ctx.closePath();
+            ctx.stroke();
+
+            // Left Red / Right White Vertical Split Fill
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(0, -size + 4);
+            ctx.bezierCurveTo(-size*0.6, -size + 4, -size + 4, -size*0.25, -size + 4, 0);
+            ctx.bezierCurveTo(-size + 4, size*0.45, -size*0.25, size*0.8, 0, size - 4);
+            ctx.closePath();
+            ctx.clip();
+            ctx.fillStyle = '#990000';
+            ctx.fillRect(-size, -size, size, size*2);
+            ctx.restore();
+
+            // Draw Book symbol in left section
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(-10, -5, 6, 8);
+            ctx.strokeStyle = '#ffffff';
+            ctx.strokeRect(-10, -5, 6, 8);
+
+            // Draw Laurel branches wreath on the right
+            ctx.fillStyle = '#990000';
+            ctx.beginPath();
+            ctx.arc(7, -1, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.arc(7, 5, 3, 0, Math.PI * 2); ctx.fill();
+
+            // AFL Banner across the bottom margin
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#002244';
+            ctx.lineWidth = 1;
+            ctx.fillRect(-14, size*0.5, 28, 10);
+            ctx.strokeRect(-14, size*0.5, 28, 10);
+
+            ctx.fillStyle = '#002244';
+            ctx.font = 'bold 7px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("A F L", 0, size * 0.72);
+
+            ctx.restore();
+        }
+
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
         }
 
-        // Launches Modal displaying text preview and One-Click send buttons
         function openReminderModal(i, isOverdue) {
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             let s = db[i];
             let msg = getHindiReminderMessage(s, isOverdue);
             
             document.getElementById('reminderPreviewText').innerText = msg;
-            
-            // Configure WhatsApp Send Action
             document.getElementById('whatsappSendBtn').onclick = function() {
                 let formattedPhone = s.sPhone.trim();
                 if (formattedPhone.length === 10) formattedPhone = "91" + formattedPhone;
                 const waUrl = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(msg)}`;
                 window.open(waUrl, '_blank');
             };
-
-            // Configure Native SMS Send Action
             document.getElementById('smsSendBtn').onclick = function() {
                 const smsUrl = `sms:${s.sPhone}?body=${encodeURIComponent(msg)}`;
                 window.location.href = smsUrl;
             };
-
             openModal('reminderModal');
         }
 
-        // Collect Fee Modals
         function openCollectFeeModal(i) {
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             let s = db[i];
             activeFeeStudentIndex = i;
-
-            // Extract numeric value safely to set collect field defaults
             let numericFee = s.fee.replace(/[^\d]/g, '');
             document.getElementById('collectNetDisplay').value = s.fee;
             document.getElementById('collectPaidAmount').value = numericFee;
-
             openModal('feeModal');
         }
 
@@ -1261,8 +1539,6 @@
 
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             let s = db[activeFeeStudentIndex];
-
-            // Mark paid status and record timestamp
             s.feeStatus = "paid";
             const today = new Date();
             s.datePaid = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
@@ -1270,48 +1546,33 @@
 
             db[activeFeeStudentIndex] = s;
             localStorage.setItem('db_safe', JSON.stringify(db));
-
             closeModal('feeModal');
             loadStudents();
-
-            // Fire Receipt Canvas Generation Dialog
             generateBillCanvas(s);
         }
 
-        // Reprint bill option for already paid cards
         function reprintBill(i) {
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             let s = db[i];
             generateBillCanvas(s);
         }
 
-        // Draws beautiful HD payment receipt on localized HTML5 Canvas
         function generateBillCanvas(s) {
             const canvas = document.getElementById('receiptCanvas');
             const ctx = canvas.getContext('2d');
-            
-            // Set canvas size dynamically for HD rendering (1000x1280)
             canvas.width = 1000;
             canvas.height = 1280;
-
-            // Reset scale and clear
             ctx.restore();
             ctx.save();
-            // Scale by 2x for sharp HD output elements
             ctx.scale(2, 2);
 
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, 500, 640);
-
-            // Navy Header Border Top Accent
             ctx.fillStyle = '#003366';
             ctx.fillRect(0, 0, 500, 14);
-
-            // Gold Header Border Under-Accent
             ctx.fillStyle = '#f39c12';
             ctx.fillRect(0, 14, 500, 4);
 
-            // Write Header Info
             ctx.fillStyle = '#003366';
             ctx.font = 'bold 24px Arial, Helvetica';
             ctx.textAlign = 'center';
@@ -1319,71 +1580,52 @@
 
             ctx.fillStyle = '#4a5568';
             ctx.font = '12px Arial, Helvetica';
-            ctx.fillText("#39, Malviya Colony, Guda Kallan - Pali (306103)", 250, 78);
+            ctx.fillText("#39, Malviya Colony, Guda Kallan, Sojat, Pali (306103)", 250, 78);
             ctx.fillText("Ph: 8696602827 | Email: malviyaclassess@gmail.com", 250, 96);
 
-            // Draw Divider Line
             ctx.strokeStyle = '#cbd5e0';
             ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(20, 115);
-            ctx.lineTo(480, 115);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(20, 115); ctx.lineTo(480, 115); ctx.stroke();
 
-            // Write Invoice Title and ID Info
             ctx.fillStyle = '#2d3748';
             ctx.font = 'bold 16px Arial, Helvetica';
             ctx.textAlign = 'left';
             ctx.fillText("FEE PAYMENT RECEIPT", 25, 145);
 
-            // Auto-Generate a Receipt Number with Timestamp
             let recNo = `AFL-REC-${s.regNo}-${s.datePaid.replace(/-/g, '')}`;
             ctx.font = '11px Arial, Helvetica';
             ctx.fillStyle = '#718096';
             ctx.fillText(`Receipt No: ${recNo}`, 25, 165);
             ctx.fillText(`Date: ${s.datePaid || 'N/A'}`, 25, 180);
 
-            // Student Meta Box Border
             ctx.strokeStyle = '#e2e8f0';
             ctx.strokeRect(25, 200, 450, 180);
             ctx.fillStyle = '#f7fafc';
             ctx.fillRect(26, 201, 448, 178);
 
-            // Write Student Meta values inside box
             ctx.fillStyle = '#4a5568';
             ctx.font = 'bold 13px Arial, Helvetica';
             ctx.fillText("Student Details:", 40, 225);
 
             ctx.font = '12px Arial, Helvetica';
             ctx.fillStyle = '#2d3748';
-            
-            // Grid Rows of Meta Details
             ctx.fillText(`Registration No:`, 40, 255);
             ctx.fillText(`${s.regNo}`, 160, 255);
-            
             ctx.fillText(`Student Name:`, 40, 280);
             ctx.fillText(`${s.sName.toUpperCase()}`, 160, 280);
-
             ctx.fillText(`Father's Name:`, 40, 305);
             ctx.fillText(`${s.fName.toUpperCase()}`, 160, 305);
-
             ctx.fillText(`Class Name:`, 40, 330);
             ctx.fillText(`Class ${s.classVal}`, 160, 330);
-
             ctx.fillText(`Course Subjects:`, 40, 355);
             ctx.fillText(`${s.subjects}`, 160, 355);
 
-            // Transaction details Header
             ctx.fillStyle = '#003366';
             ctx.font = 'bold 13px Arial, Helvetica';
             ctx.fillText("Payment Particulars", 25, 410);
 
-            // Payment Grid Table
             ctx.strokeStyle = '#a0aec0';
-            ctx.beginPath();
-            ctx.moveTo(25, 420);
-            ctx.lineTo(475, 420);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(25, 420); ctx.lineTo(475, 420); ctx.stroke();
 
             ctx.fillStyle = '#2d3748';
             ctx.font = '12px Arial, Helvetica';
@@ -1392,10 +1634,7 @@
             ctx.fillText("Amount", 470, 440);
 
             ctx.strokeStyle = '#e2e8f0';
-            ctx.beginPath();
-            ctx.moveTo(25, 450);
-            ctx.lineTo(475, 450);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(25, 450); ctx.lineTo(475, 450); ctx.stroke();
 
             ctx.textAlign = 'left';
             ctx.fillText("Term Registration Admission & Tuition Fee", 30, 475);
@@ -1403,7 +1642,6 @@
             ctx.font = 'bold 12px Arial, Helvetica';
             ctx.fillText(`₹ ${s.amountPaid || s.fee.replace(/[^\d]/g, '')}`, 470, 475);
 
-            // Total Block Box
             ctx.fillStyle = '#edf2f7';
             ctx.fillRect(280, 505, 195, 35);
             ctx.strokeStyle = '#cbd5e0';
@@ -1417,33 +1655,43 @@
             ctx.fillStyle = '#28a745';
             ctx.fillText(`₹ ${s.amountPaid || s.fee.replace(/[^\d]/g, '')}`, 465, 527);
 
-            // Footer Signatures/Closing Stamp details
             ctx.textAlign = 'center';
             ctx.fillStyle = '#718096';
             ctx.font = 'italic 11px Arial, Helvetica';
             ctx.fillText("Thank you for choosing Alone Flyer's Learning", 250, 575);
 
-            // Draw Sign Line
             ctx.strokeStyle = '#2d3748';
-            ctx.beginPath();
-            ctx.moveTo(350, 615);
-            ctx.lineTo(470, 615);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(350, 615); ctx.lineTo(470, 615); ctx.stroke();
             
+            // Check for Custom Director Signature Upload
+            let customSignatureBase64 = localStorage.getItem('director_sign_custom');
+            if (customSignatureBase64) {
+                let signImg = new Image();
+                signImg.src = customSignatureBase64;
+                signImg.onload = () => {
+                    ctx.drawImage(signImg, 355, 580, 110, 32);
+                    finishBillRendering();
+                };
+            } else {
+                ctx.fillStyle = '#003366';
+                ctx.font = "italic bold 18px 'Brush Script MT', cursive";
+                ctx.fillText("Anil Malviya", 410, 608);
+                finishBillRendering();
+            }
+        }
+
+        function finishBillRendering() {
+            const ctx = document.getElementById('receiptCanvas').getContext('2d');
             ctx.fillStyle = '#2d3748';
             ctx.font = 'bold 10px Arial, Helvetica';
             ctx.textAlign = 'center';
             ctx.fillText("Authorized Signatory (H.O.D)", 410, 628);
-
-            // Trigger modal display with compiled canvas
             openModal('billModal');
         }
 
-        // Download the HTML5 Canvas directly as a high resolution HD .png image
         function downloadBillAsPhoto() {
             const canvas = document.getElementById('receiptCanvas');
-            const dataUrl = canvas.toDataURL('image/png', 1.0); // Maximum quality factor
-            
+            const dataUrl = canvas.toDataURL('image/png', 1.0);
             const link = document.createElement('a');
             link.download = `AFL_Bill_Receipt_HD_${Date.now()}.png`;
             link.href = dataUrl;
@@ -1452,11 +1700,9 @@
             document.body.removeChild(link);
         }
 
-        // Direct printer interface support via hidden window injection
         function printReceiptFromCanvas() {
             const canvas = document.getElementById('receiptCanvas');
             const dataUrl = canvas.toDataURL('image/png');
-
             const pWindow = window.open('', '_blank');
             pWindow.document.write(`
                 <html>
@@ -1475,42 +1721,31 @@
             pWindow.document.close();
         }
 
-        // ================== TRANSFER CERTIFICATE (T.C.) LOGIC ==================
-
+        // ================== TRANSFER CERTIFICATE LOGIC ==================
         function openTCDialog(i) {
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             let s = db[i];
             generateTCCanvas(s);
         }
 
-        // Draws highly polished HD Transfer Certificate (T.C.) on HTML5 Canvas
         function generateTCCanvas(s) {
             const canvas = document.getElementById('tcCanvas');
             const ctx = canvas.getContext('2d');
-            
-            // Set HD Dimensions
             canvas.width = 1000;
             canvas.height = 1300;
-
             ctx.restore();
             ctx.save();
-            ctx.scale(2, 2); // 2x context scaling for HD elements
+            ctx.scale(2, 2);
 
-            // White Background
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, 500, 650);
-
-            // Elegant Navy Border Frame
             ctx.strokeStyle = '#003366';
             ctx.lineWidth = 6;
             ctx.strokeRect(10, 10, 480, 630);
-
-            // Double Gold Inner Frame
             ctx.strokeStyle = '#f39c12';
             ctx.lineWidth = 1.5;
             ctx.strokeRect(18, 18, 464, 614);
 
-            // Header Elements
             ctx.fillStyle = '#003366';
             ctx.font = 'bold 22px Arial, Helvetica';
             ctx.textAlign = 'center';
@@ -1518,35 +1753,27 @@
 
             ctx.fillStyle = '#4a5568';
             ctx.font = 'italic 11px Arial, Helvetica';
-            ctx.fillText("#39, Malviya Colony, Guda Kallan - Pali (306103)", 250, 80);
+            ctx.fillText("#39, Malviya Colony, Guda Kallan, Sojat, Pali (306103)", 250, 80);
             ctx.fillText("Ph: 8696602827 | Email: malviyaclassess@gmail.com", 250, 95);
 
-            // Decorative Banner
             ctx.fillStyle = '#003366';
             ctx.fillRect(100, 115, 300, 30);
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 13px Arial, Helvetica';
             ctx.fillText("TRANSFER CERTIFICATE", 250, 134);
 
-            // Certificate Details
             ctx.fillStyle = '#2d3748';
             ctx.font = 'bold 11px Arial, Helvetica';
             ctx.textAlign = 'left';
-            
             let tcNo = `AFL-TC-${s.regNo}`;
             ctx.fillText(`T.C. No: ${tcNo}`, 35, 175);
             ctx.textAlign = 'right';
             ctx.fillText(`Reg No: ${s.regNo}`, 465, 175);
 
-            // Draw Divider
             ctx.strokeStyle = '#e2e8f0';
             ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(35, 185);
-            ctx.lineTo(465, 185);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(35, 185); ctx.lineTo(465, 185); ctx.stroke();
 
-            // Main Details Block
             ctx.fillStyle = '#2d3748';
             ctx.font = '12px Arial, Helvetica';
             ctx.textAlign = 'left';
@@ -1558,16 +1785,10 @@
                 ctx.fillStyle = '#4a5568';
                 ctx.font = 'bold 12px Arial, Helvetica';
                 ctx.fillText(lbl, 35, lineY);
-
                 ctx.fillStyle = '#2d3748';
                 ctx.font = 'bold 12px Arial, Helvetica';
-                // Underline line
                 ctx.strokeStyle = '#cbd5e0';
-                ctx.beginPath();
-                ctx.moveTo(180, lineY + 3);
-                ctx.lineTo(465, lineY + 3);
-                ctx.stroke();
-
+                ctx.beginPath(); ctx.moveTo(180, lineY + 3); ctx.lineTo(465, lineY + 3); ctx.stroke();
                 ctx.fillText(val ? val.toUpperCase() : "N/A", 185, lineY);
                 lineY += lineSpacing;
             }
@@ -1580,42 +1801,51 @@
             drawTCLabelValue("6. Class at Leaving:", `Class ${s.classVal}`);
             drawTCLabelValue("7. Subjects Studied:", s.subjects);
             
-            // Get current paid date or stamp current local system date as termination date
             let leaveDate = s.datePaid || formatDate(new Date().toISOString().split('T')[0]);
             drawTCLabelValue("8. Date of Discharge:", leaveDate);
             drawTCLabelValue("9. Student Conduct:", "GOOD");
             drawTCLabelValue("10. Reason for leaving:", "COURSE COMPLETED");
 
-            // Double Signature lines
             ctx.strokeStyle = '#2d3748';
             ctx.lineWidth = 1.5;
-            
-            // Left Sign
-            ctx.beginPath();
-            ctx.moveTo(35, 595);
-            ctx.lineTo(150, 595);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(35, 595); ctx.lineTo(150, 595); ctx.stroke();
             ctx.fillStyle = '#2d3748';
             ctx.font = 'bold 10px Arial, Helvetica';
             ctx.textAlign = 'center';
             ctx.fillText("Prepared By", 92, 608);
 
-            // Right Sign
-            ctx.beginPath();
-            ctx.moveTo(350, 595);
-            ctx.lineTo(465, 595);
-            ctx.stroke();
-            ctx.fillText("Director Signatory (H.O.D)", 407, 608);
+            ctx.beginPath(); ctx.moveTo(350, 595); ctx.lineTo(465, 595); ctx.stroke();
+            
+            let customSignatureBase64 = localStorage.getItem('director_sign_custom');
+            if (customSignatureBase64) {
+                let signImg = new Image();
+                signImg.src = customSignatureBase64;
+                signImg.onload = () => {
+                    ctx.drawImage(signImg, 355, 560, 110, 32);
+                    finishTCRendering();
+                };
+            } else {
+                ctx.fillStyle = '#003366';
+                ctx.font = "italic bold 18px 'Brush Script MT', cursive";
+                ctx.fillText("Anil Malviya", 407, 588);
+                finishTCRendering();
+            }
+        }
 
+        function finishTCRendering() {
+            const ctx = document.getElementById('tcCanvas').getContext('2d');
+            ctx.fillStyle = '#2d3748';
+            ctx.font = 'bold 10px Arial, Helvetica';
+            ctx.textAlign = 'center';
+            ctx.fillText("Director Signatory (H.O.D)", 407, 608);
             openModal('tcModal');
         }
 
         function downloadTCAsPhoto() {
             const canvas = document.getElementById('tcCanvas');
-            const dataUrl = canvas.toDataURL('image/png', 1.0); // Maximum quality factor
-            
+            const dataUrl = canvas.toDataURL('image/png', 1.0);
             const link = document.createElement('a');
-            link.download = `AFL_Transfer_Certificate_HD_${Date.now()}.png`;
+            link.download = `AFL_TC_HD_${Date.now()}.png`;
             link.href = dataUrl;
             document.body.appendChild(link);
             link.click();
@@ -1625,12 +1855,11 @@
         function printTCFromCanvas() {
             const canvas = document.getElementById('tcCanvas');
             const dataUrl = canvas.toDataURL('image/png');
-
             const pWindow = window.open('', '_blank');
             pWindow.document.write(`
                 <html>
                 <head>
-                    <title>Print Transfer Certificate</title>
+                    <title>Print T.C.</title>
                     <style>
                         body { margin: 0; display: flex; justify-content: center; align-items: center; }
                         img { max-width: 100%; height: auto; }
@@ -1642,6 +1871,134 @@
                 </html>
             `);
             pWindow.document.close();
+        }
+
+        // ================== REAL-TIME CUSTOM ANNOUNCEMENT BROADCASTER ==================
+        function applyBroadcastTemplate(type) {
+            let msgBox = document.getElementById('broadcastMessageText');
+            if (type === 'holiday') {
+                msgBox.value = "प्रिय अभिभावक, कल दिनांक [Date] को [Reason] के उपलक्ष्य में संस्था में अवकाश रहेगा। कक्षाएं अगले कार्यदिवस से सुचारू रूप से संचालित होंगी। धन्यवाद! - अलोन फ्लायर्स लर्निंग, पाली।";
+            } else if (type === 'festival') {
+                msgBox.value = "अलोन फ्लायर्स लर्निंग, पाली की ओर से आप सभी अभिभावकों एवं छात्र-छात्राओं को [Festival Name] की हार्दिक शुभकामनाएं! यह त्यौहार आपके जीवन में सुख और समृद्धि लाए। धन्यवाद!";
+            } else if (type === 'function') {
+                msgBox.value = "प्रिय अभिभावक, आपको सूचित किया जाता है कि दिनांक [Date] को संस्था में [Function/Event Name] का आयोजन किया जा रहा है। सभी छात्र-छात्राओं की उपस्थिति अनिवार्य है। धन्यवाद!";
+            }
+        }
+
+        function startBroadcastLoop() {
+            let msg = document.getElementById('broadcastMessageText').value.trim();
+            if (!msg) return alert("Please write a custom announcement message first.");
+            
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            // Filter active students only
+            broadcastQueue = db.filter(s => !s.status || s.status === "active");
+            if (broadcastQueue.length === 0) return alert("No active student records available to send updates to.");
+
+            if (!confirm(`This will launch a sequential dispatcher loop to send updates to ${broadcastQueue.length} active parents. Proceed?`)) {
+                return;
+            }
+
+            broadcastPointer = 0;
+            broadcastMsgText = msg;
+            broadcastType = document.getElementById('broadcastChannelSelect').value;
+
+            updateBroadcastModalUI();
+            openModal('broadcastModal');
+        }
+
+        function updateBroadcastModalUI() {
+            let currentStudent = broadcastQueue[broadcastPointer];
+            document.getElementById('broadcastProgressText').innerText = `${broadcastPointer + 1} / ${broadcastQueue.length}`;
+            document.getElementById('broadcastTargetName').innerText = `Sending to: ${currentStudent.sName} (${currentStudent.sPhone})`;
+            
+            let progressPercent = ((broadcastPointer + 1) / broadcastQueue.length) * 100;
+            document.getElementById('broadcastProgressBar').style.width = `${progressPercent}%`;
+
+            document.getElementById('btnBroadcastSendNext').onclick = function() {
+                // Execute current launch in a new window/tab
+                sendIndividualMessage(currentStudent, broadcastMsgText, broadcastType);
+                
+                // Increment pointer
+                broadcastPointer++;
+                if (broadcastPointer < broadcastQueue.length) {
+                    updateBroadcastModalUI();
+                } else {
+                    closeModal('broadcastModal');
+                    alert("Broadcast dispatch completed successfully!");
+                }
+            };
+        }
+
+        function sendIndividualMessage(s, msg, type) {
+            if (type === "whatsapp") {
+                let formattedPhone = s.sPhone.trim();
+                if (formattedPhone.length === 10) formattedPhone = "91" + formattedPhone;
+                const url = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(msg)}`;
+                window.open(url, '_blank');
+            } else {
+                const url = `sms:${s.sPhone}?body=${encodeURIComponent(msg)}`;
+                window.location.href = url;
+            }
+        }
+
+        // ================== INSTITUTION CUSTOM CONFIG LOADER ==================
+        function uploadCoachingLogo(input) {
+            if (input.files && input.files[0]) {
+                const r = new FileReader();
+                r.onload = function(e) {
+                    localStorage.setItem('coaching_logo_custom', e.target.result);
+                    document.getElementById('coachingLogoPreview').style.display = 'block';
+                };
+                r.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function uploadDirectorSign(input) {
+            if (input.files && input.files[0]) {
+                const r = new FileReader();
+                r.onload = function(e) {
+                    localStorage.setItem('director_sign_custom', e.target.result);
+                    document.getElementById('directorSignPreview').style.display = 'block';
+                };
+                r.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function loadInstitutionCustomization() {
+            if (localStorage.getItem('coaching_logo_custom')) {
+                document.getElementById('coachingLogoPreview').style.display = 'block';
+            }
+            if (localStorage.getItem('director_sign_custom')) {
+                document.getElementById('directorSignPreview').style.display = 'block';
+            }
+        }
+
+        function clearInstitutionSetup() {
+            if (confirm("Reset institution logo and director signature back to default fallbacks?")) {
+                localStorage.removeItem('coaching_logo_custom');
+                localStorage.removeItem('director_sign_custom');
+                document.getElementById('coachingLogoPreview').style.display = 'none';
+                document.getElementById('directorSignPreview').style.display = 'none';
+                alert("Restored defaults.");
+            }
+        }
+
+        function loadImage(src) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.src = src;
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('regForm').reset();
+            document.getElementById('editIndex').value = "";
+            document.getElementById('preview-image').style.display = 'none';
+            document.getElementById('btnSubmit').style.display = 'block';
+            document.getElementById('btnUpdate').style.display = 'none';
+            currentPhotoBase64 = "";
+            setDefaultRegNo();
         }
 
     </script>
