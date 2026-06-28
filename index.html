@@ -51,6 +51,7 @@
 
         /* Admin & Table */
         .admin-panel { background: #e8eaf6; padding: 15px; margin-top: 30px; border-radius: 5px; display: flex; align-items: center; gap: 15px; border: 1px solid #c5cae9; }
+        .admin-panel select { width: auto; min-width: 150px; padding: 6px; }
         .table-section { margin-top: 30px; }
         table { width: 100%; border-collapse: collapse; background: white; }
         th { background: var(--navy); color: white; padding: 12px; text-align: left; }
@@ -240,9 +241,7 @@
                         <label>Student Photo</label>
                         <div class="photo-controls" style="display:flex; justify-content:center; gap:8px;">
                             <button type="button" class="btn-upload" onclick="document.getElementById('photoInput').click()">📂 Upload File</button>
-                            <!-- Direct Mobile Camera Trigger (Recommended Fallback - Bypasses Browser/Domain Security Blocks) -->
                             <button type="button" class="btn-native-cam" onclick="document.getElementById('nativeCameraInput').click()">📸 Rear Camera</button>
-                            <!-- Live Streaming Camera (Works only under HTTPS/Localhost) -->
                             <button type="button" class="btn-cam" onclick="startCamera()">🎥 Live WebCam</button>
                         </div>
                         
@@ -269,11 +268,11 @@
 
         <!-- ADMIN -->
         <div class="admin-panel">
-            <strong>🔐 Admin Panel:</strong>
-            <span>From ID: AFL100</span>
-            <input type="number" id="printFrom" placeholder="1" style="width:60px; padding:5px;">
-            <span>To ID: AFL100</span>
-            <input type="number" id="printTo" placeholder="10" style="width:60px; padding:5px;">
+            <strong>🔐 Admin Panel (Bulk Print):</strong>
+            <span>From:</span>
+            <select id="printFrom"></select>
+            <span>To:</span>
+            <select id="printTo"></select>
             <button type="button" class="btn-bulk" onclick="bulkPrint()">🖨️ Bulk Print</button>
         </div>
 
@@ -347,16 +346,14 @@
                 video: { facingMode: "environment" }
             };
 
-            // Attempt targeting the rear/back camera live feed
             navigator.mediaDevices.getUserMedia(constraints)
             .then(s => {
                 videoStream = s;
                 document.getElementById('video').srcObject = s;
             })
             .catch(err => {
-                console.warn("Could not start environment camera, attempting fallback to default device...", err);
+                console.warn("Could not start environment camera, attempting fallback...", err);
                 
-                // Fallback attempt with generic configuration
                 navigator.mediaDevices.getUserMedia({ video: true })
                 .then(s => {
                     videoStream = s;
@@ -367,11 +364,11 @@
                     
                     let errorMsg = "Unable to start Live WebCam.\n\n";
                     if (window.location.protocol === "file:") {
-                        errorMsg += "⚠️ SITE SECURITY RESTRICTION:\nYou opened this file directly from your device folders (starts with 'file://'). Modern browsers block live webcam access for local files.\n\n👉 SOLUTION:\nTo use the camera on your phone/tablet, please click the blue '📸 Rear Camera' button instead! It works directly without needing any server setups.";
-                    } else if (window.location.protocol === "http:" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-                        errorMsg += "⚠️ SECURE CONNECTION REQUIRED:\nThe web browser requires a secure HTTPS connection to stream live video.\n\n👉 SOLUTION:\nUse the blue '📸 Rear Camera' button to take a direct photo instead.";
+                        errorMsg += "⚠️ SITE SECURITY RESTRICTION:\nYou opened this file directly from your folders. Browsers block local file camera access.\n\n👉 SOLUTION:\nClick the '📸 Rear Camera' button instead to select a camera image directly.";
+                    } else if (window.location.protocol === "http:" && window.location.hostname !== "localhost") {
+                        errorMsg += "⚠️ SECURE CONNECTION REQUIRED:\nThe browser requires a secure HTTPS connection.\n\n👉 SOLUTION:\nUse the '📸 Rear Camera' button to upload/take a photo.";
                     } else {
-                        errorMsg += "⚠️ BROWSER ACCESS BLOCKED:\nPlease click the Lock/Settings icon next to the address bar and verify that Camera permission is set to 'Allow'.";
+                        errorMsg += "⚠️ BROWSER ACCESS BLOCKED:\nPlease check camera permission settings.";
                     }
                     
                     alert(errorMsg);
@@ -397,7 +394,6 @@
             return `${d}-${m}-${y}`;
         }
 
-        // Set Default registration ID helper
         function setDefaultRegNo() {
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
             document.getElementById('regNoInput').value = "AFL100" + (db.length + 1);
@@ -500,6 +496,39 @@
                 </td></tr>`;
             });
             document.querySelector('#studentTable tbody').innerHTML = h;
+            updateBulkPrintSelects();
+        }
+
+        function updateBulkPrintSelects() {
+            let db = JSON.parse(localStorage.getItem('db_safe')) || [];
+            let fromSelect = document.getElementById('printFrom');
+            let toSelect = document.getElementById('printTo');
+            
+            if (!fromSelect || !toSelect) return;
+            
+            fromSelect.innerHTML = "";
+            toSelect.innerHTML = "";
+            
+            if (db.length === 0) {
+                fromSelect.innerHTML = "<option value=''>-- No Data --</option>";
+                toSelect.innerHTML = "<option value=''>-- No Data --</option>";
+                return;
+            }
+            
+            db.forEach((s, idx) => {
+                let optFrom = document.createElement('option');
+                optFrom.value = idx;
+                optFrom.textContent = `${s.regNo} (${s.sName})`;
+                fromSelect.appendChild(optFrom);
+                
+                let optTo = document.createElement('option');
+                optTo.value = idx;
+                optTo.textContent = `${s.regNo} (${s.sName})`;
+                toSelect.appendChild(optTo);
+            });
+            
+            fromSelect.value = 0;
+            toSelect.value = db.length - 1;
         }
 
         // 5. PRINT FUNCTIONS
@@ -576,14 +605,22 @@
         function bulkPrint() {
             if(prompt("Password:")!==ADMIN_PASS) return;
             let db = JSON.parse(localStorage.getItem('db_safe')) || [];
-            let f = parseInt(document.getElementById('printFrom').value);
-            let t = parseInt(document.getElementById('printTo').value);
-            let list = [];
-            db.forEach((s) => {
-                let num = parseInt(s.regNo.replace("AFL100",""));
-                if(num >= f && num <= t) list.push(s);
-            });
-            if(list.length===0) return alert("No students found.");
+            if(db.length === 0) return alert("No students in the database.");
+
+            let fromIdx = parseInt(document.getElementById('printFrom').value);
+            let toIdx = parseInt(document.getElementById('printTo').value);
+
+            if(isNaN(fromIdx) || isNaN(toIdx)) return alert("Please select valid registration IDs.");
+
+            // Swap values if 'from' is selected as a higher index than 'to'
+            if(fromIdx > toIdx) {
+                let temp = fromIdx;
+                fromIdx = toIdx;
+                toIdx = temp;
+            }
+
+            let list = db.slice(fromIdx, toIdx + 1);
+            if(list.length === 0) return alert("No students found in the selected range.");
             preparePrint(list);
         }
 
